@@ -32,9 +32,9 @@ function Btn($text,$x,$y,$w=170,$h=36){$b=New-Object Windows.Forms.Button;$b.Tex
 function Lbl($text,$x,$y,$w=220,$h=24){$l=New-Object Windows.Forms.Label;$l.Text=$text;$l.Location=New-Object Drawing.Point($x,$y);$l.Size=New-Object Drawing.Size($w,$h);$l.ForeColor=$C.Fg;return $l}
 function Toast($title,$message,$level='INFO'){Show-CcToast $title $message $level}
 
-$home=New-Tab 'Главная'
-$homeText=New-Object Windows.Forms.TextBox;$homeText.Multiline=$true;$homeText.ReadOnly=$true;$homeText.Dock='Fill';$homeText.Font=New-Object Drawing.Font('Consolas',11);Style-Control $homeText;$home.Controls.Add($homeText)
-$homeBtn=Btn 'Обновить статус' 15 15;$home.Controls.Add($homeBtn)
+$homeTab=New-Tab 'Главная'
+$homeText=New-Object Windows.Forms.TextBox;$homeText.Multiline=$true;$homeText.ReadOnly=$true;$homeText.Dock='Fill';$homeText.Font=New-Object Drawing.Font('Consolas',11);Style-Control $homeText;$homeTab.Controls.Add($homeText)
+$homeBtn=Btn 'Обновить статус' 15 15;$homeTab.Controls.Add($homeBtn)
 function Refresh-Home{
     try{$h=Get-CcHardware;$share=[string]$cfg['UPDATE_SHARE'];$net=if($share -and(Test-Path $share)){'ONLINE'}else{'OFFLINE'}
     $homeText.Text="ПК: $($h.ComputerName)$( [Environment]::NewLine )ОС: $($h.OS)$( [Environment]::NewLine )CPU: $($h.CPU)$( [Environment]::NewLine )GPU: $($h.GPU)$( [Environment]::NewLine )RAM: $($h.RAM)$( [Environment]::NewLine )Диск C: $($h.Disk)$( [Environment]::NewLine )Температура CPU: $($h.CpuTemp)$( [Environment]::NewLine )Версия: $Version$( [Environment]::NewLine )SMB update: $net"}catch{Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception}}
@@ -88,6 +88,7 @@ $backup=New-Tab 'Бэкап';$backup.Controls.Add((Lbl 'Резервное ко�
 $cleanup=New-Tab 'Очистка';$cleanup.Controls.Add((Lbl 'Очистка ПК' 20 20 300));$cleanupBtn=Btn 'Запустить очистку' 20 60 180;$cleanup.Controls.Add($cleanupBtn)
 
 function Run-HiddenCmd([string]$Name){try{$path=Join-Path $Root $Name;if(-not(Test-Path $path)){throw "File not found: $path"};$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+$path+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' "$Name завершён, код $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception;Toast 'Ошибка' $_.Exception.Message 'ERROR'}}
+
 $backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$cleanupBtn.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
 $logs=New-Tab 'Логи'
 $logText=New-Object Windows.Forms.TextBox;$logText.Multiline=$true;$logText.ReadOnly=$true;$logText.ScrollBars='Both';$logText.Dock='Fill';$logText.Font=New-Object Drawing.Font('Consolas',9);Style-Control $logText;$logs.Controls.Add($logText)
