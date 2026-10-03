@@ -24,6 +24,12 @@ $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Accounts.ps1')
 . (Join-Path $Tools 'Hardware.ps1')
 
+try{
+    [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+    [System.Windows.Forms.Application]::add_ThreadException({param($sender,$args) Write-CcError -FunctionName 'WinForms.ThreadException' -Exception $args.Exception;[void][Windows.Forms.MessageBox]::Show("Ошибка программы.`n`n$($args.Exception.Message)`n`nПодробности записаны в logs\\errors.log.",'CyberCroc — ошибка',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Error)})
+    [AppDomain]::CurrentDomain.add_UnhandledException({param($sender,$args) if($args.ExceptionObject -is [Exception]){Write-CcError -FunctionName 'AppDomain.UnhandledException' -Exception $args.ExceptionObject}})
+}catch{}
+
 function Get-CcStartupConfig {
     param([string]$Path)
     $result=@{}
@@ -384,9 +390,9 @@ function Run-HiddenCmd([string]$Name){
 function Apply-Theme{
     try{
         $form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$nav.BackColor=$C.Panel;$content.BackColor=$C.Bg;$footer.BackColor=$C.Panel
+        foreach($p in $pages.Values){$p.BackColor=$C.Bg;Apply-ControlTheme $p}
         foreach($b in $navButtons.Values){$b.BackColor=$C.Control;$b.ForeColor=$C.Fg;$b.FlatAppearance.BorderColor=$C.Fg}
         if($navButtons.ContainsKey('home')){$navButtons['home'].BackColor=$C.AccentDark;$navButtons['home'].ForeColor=$C.White}
-        foreach($p in $pages.Values){$p.BackColor=$C.Bg}
     }catch{Write-CcError -FunctionName 'Apply-Theme' -Exception $_.Exception}
 }
 
@@ -402,6 +408,8 @@ Add-MenuButton 'settings' '⚙  НАСТРОЙКИ'
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
 $syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
 try{Sync-CcAccounts Pull|Out-Null}catch{}
+$script:AppProcess=$null;$script:AppProcessName=''
+$appTimer=New-Object Windows.Forms.Timer;$appTimer.Interval=500;$appTimer.Add_Tick({try{if($null -ne $script:AppProcess){if($script:AppProcess.HasExited){$rc=$script:AppProcess.ExitCode;$appInfo.Text="Операция завершена: $script:AppProcessName`nКод: $rc";$progress.Visible=$false;if($rc -eq 0){Toast 'Программы' "$script:AppProcessName установлена/обновлена." 'OK'}else{Show-CcErrorPopup 'Установка программы' ([Exception]("$script:AppProcessName завершилась с кодом $rc"))};$script:AppProcess=$null}}}catch{}});$appTimer.Start()
 Refresh-Home;Refresh-Games;Refresh-Accounts;Refresh-Logs;Apply-Theme;Show-Page 'home'
 $form.Add_FormClosing({Write-CcLog 'GUI closed' 'INFO' 'FormClosing'})
 [void]$form.ShowDialog()
