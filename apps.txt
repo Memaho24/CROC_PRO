@@ -1,0 +1,20 @@
+# ============================================================
+# apps.txt - программы, которые ставятся ПРЯМО ИЗ ИНТЕРНЕТА (без папки APL)
+# Формат:  Название | Источник | Тип | Файл-проверка | Ключи тихой установки
+#   Тип winget : Источник = ID программы в winget
+#   Тип url    : Источник = прямая ссылка на .exe или .msi
+# Последние две колонки можно оставить пустыми.
+# ПРИМЕР - замените на свои программы клуба.
+# Чтобы отключить строку, поставьте в начале #
+# ============================================================
+
+Steam|Valve.Steam|winget|C:\Program Files (x86)\Steam\steam.exe
+Discord|Discord.Discord|winget|%LOCALAPPDATA%\Discord\Update.exe
+Battle.net|Blizzard.BattleNet|winget|C:\Program Files (x86)\Battle.net\Battle.net Launcher.exe
+Epic Games Launcher|EpicGames.EpicGamesLauncher|winget|C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win32\EpicGamesLauncher.exe
+Visual C++ 2015-2022 x64|Microsoft.VCRedist.2015+.x64|winget|
+Visual C++ 2015-2022 x86|Microsoft.VCRedist.2015+.x86|winget|
+DirectX Runtime|Microsoft.DirectX|winget|
+
+# Пример программы по прямой ссылке (раскомментируйте и подставьте свою):
+#MyTool|https://example.com/MyTool-setup.exe|url|C:\Program Files\MyTool\MyTool.exe|/S

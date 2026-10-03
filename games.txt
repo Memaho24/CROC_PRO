@@ -1,0 +1,9 @@
+# CyberCroc game inventory
+# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion
+# Steam is detected by AppID and appmanifest files.
+Counter-Strike 2|C:\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe|steam||730|
+Dota 2|C:\Steam\steamapps\common\dota 2 beta\game\bin\win64\dota2.exe|steam||570|
+PUBG: Battlegrounds|C:\Steam\steamapps\common\PUBG\TslGame\Binaries\Win64\TslGame.exe|steam||578080|
+League of Legends|C:\Riot Games\League of Legends\LeagueClient.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe||
+Valorant|C:\Riot Games\VALORANT\live\VALORANT.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe||
+Warface|C:\VK Play\Warface\Bin64Release\Game.exe|vk|||

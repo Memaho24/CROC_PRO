@@ -1,0 +1,13 @@
+; Список возможных путей к Steam — по одному на строку.
+; Скрипт проверит их по порядку и возьмёт первый существующий.
+; Строки с ; или # игнорируются.
+
+D:\Steam
+E:\Steam
+C:\Games\Steam
+D:\Games\Steam
+E:\Games\Steam
+C:\Steam
+C:\Program Files (x86)\Steam
+C:\Program Files\Steam
+D:\Program Files (x86)\Steam

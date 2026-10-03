@@ -1,0 +1,17 @@
+# ============================================================
+# office.txt - каталог офисных программ для клуба
+# Формат: Название | Источник | Тип | Путь-проверки
+# ============================================================
+
+LibreOffice|TheDocumentFoundation.LibreOffice|winget|C:\Program Files\LibreOffice\program\soffice.exe
+OnlyOffice|ONLYOFFICE.DesktopEditors|winget|C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe
+Adobe Reader|Adobe.Acrobat.Reader.64-bit|winget|C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe
+Google Chrome|Google.Chrome|winget|C:\Program Files\Google\Chrome\Application\chrome.exe
+Mozilla Firefox|Mozilla.Firefox|winget|C:\Program Files\Mozilla Firefox\firefox.exe
+7-Zip|7zip.7zip|winget|C:\Program Files\7-Zip\7z.exe
+WinRAR|RARLab.WinRAR|winget|C:\Program Files\WinRAR\WinRAR.exe
+VLC Player|VideoLAN.VLC|winget|C:\Program Files\VideoLAN\VLC\vlc.exe
+Telegram|Telegram.TelegramDesktop|winget|%APPDATA%\Telegram Desktop\Telegram.exe
+Notepad++|Notepad++.Notepad++|winget|C:\Program Files\Notepad++\notepad++.exe
+AnyDesk|AnyDesk.AnyDesk|winget|C:\Program Files (x86)\AnyDesk\AnyDesk.exe
+TeamViewer|TeamViewer.TeamViewer|winget|C:\Program Files (x86)\TeamViewer\TeamViewer.exe

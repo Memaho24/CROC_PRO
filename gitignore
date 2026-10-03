@@ -1,0 +1,28 @@
+# Реальные конфиги и списки — НЕ публиковать
+config.ini
+games.txt
+recipes.txt
+programs.txt
+
+# Секреты
+*.token
+*.secret
+
+# Логи
+logs/
+*.log
+*.log.old
+install_log.txt
+
+# Крупные папки с установщиками и админкой
+APL/
+ADM/
+BACKUP/
+
+# Windows мусор
+Thumbs.db
+desktop.ini
+
+# Backup-файлы наших скриптов
+*.cybercroc.bak
+*.bak
