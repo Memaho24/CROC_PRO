@@ -42,7 +42,7 @@ $homeBtn.Add_Click({Refresh-Home})
 $games=New-Tab 'Игры'
 $gameSearch=New-Object Windows.Forms.TextBox;$gameSearch.Location=New-Object Drawing.Point(15,15);$gameSearch.Size=New-Object Drawing.Size(350,30);Style-Control $gameSearch;$games.Controls.Add($gameSearch)
 $gameList=New-Object Windows.Forms.ListBox;$gameList.Location=New-Object Drawing.Point(15,55);$gameList.Size=New-Object Drawing.Size(1050,560);Style-Control $gameList;$games.Controls.Add($gameList)
-function Load-Games([string]$q=''){try{$gameList.Items.Clear();$f=Join-Path $Root 'games.txt';if(Test-Path $f){foreach($l in Get-Content $f -Encoding UTF8){$s=$l.Trim();if(!$s-or$s.StartsWith('#')){continue};$name=($s-split '\|')[0].Trim();if(!$q-or$name-like "*$q*"){$gameList.Items.Add($name)|Out-Null}}}}catch{Write-CcError -FunctionName 'Load-Games' -Exception $_.Exception}}
+function Load-Games([string]$q=''){try{$gameList.Items.Clear();$f=Join-Path $Root 'games.txt';if(Test-Path $f){foreach($l in Get-Content $f -Encoding UTF8){$s=$l.Trim();if((!$s) -or $s.StartsWith('#')){continue};$name=($s-split '\|')[0].Trim();if((!$q) -or ($name -like "*$q*"){$gameList.Items.Add($name)|Out-Null}}}}catch{Write-CcError -FunctionName 'Load-Games' -Exception $_.Exception}}
 $gameSearch.Add_TextChanged({Load-Games $gameSearch.Text})
 
 $accounts=New-Tab 'Аккаунты'
@@ -51,7 +51,7 @@ foreach($h in @('Платформа','Логин','Статус','Бан','По�
 $aSearch=New-Object Windows.Forms.TextBox;$aSearch.Location=New-Object Drawing.Point(15,615);$aSearch.Size=New-Object Drawing.Size(300,30);Style-Control $aSearch;$accounts.Controls.Add($aSearch)
 $aAdd=Btn 'Добавить' 800 15;$aEdit=Btn 'Изменить' 800 55;$aDel=Btn 'Удалить' 800 95;$aCheck=Btn 'Проверить сейчас' 800 135;$aLogin=Btn 'Сменить аккаунт' 800 175;$aExport=Btn 'Экспорт JSON' 800 215;$aImport=Btn 'Импорт JSON' 800 255
 foreach($b in @($aAdd,$aEdit,$aDel,$aCheck,$aLogin,$aExport,$aImport)){$accounts.Controls.Add($b)}
-function Refresh-Accounts([string]$q=''){try{$aList.Items.Clear();foreach($a in Get-CcAccounts){if($q-and("$($a.Platform) $($a.Login)" -notlike "*$q*")){continue};$i=New-Object Windows.Forms.ListViewItem($a.Platform);$i.SubItems.Add($a.Login)|Out-Null;$i.SubItems.Add($a.Status)|Out-Null;$i.SubItems.Add($(if($a.Banned){'BAN'}else{'-'}))|Out-Null;$i.SubItems.Add([string]$a.LastCheck)|Out-Null;$i.Tag=$a;$aList.Items.Add($i)|Out-Null}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
+function Refresh-Accounts([string]$q=''){try{$aList.Items.Clear();foreach($a in Get-CcAccounts){if($q -and ("$($a.Platform) $($a.Login)" -notlike "*$q*")){continue};$i=New-Object Windows.Forms.ListViewItem($a.Platform);$i.SubItems.Add($a.Login)|Out-Null;$i.SubItems.Add($a.Status)|Out-Null;$i.SubItems.Add($(if($a.Banned){'BAN'}else{'-'}))|Out-Null;$i.SubItems.Add([string]$a.LastCheck)|Out-Null;$i.Tag=$a;$aList.Items.Add($i)|Out-Null}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
 function Account-Dialog($existing=$null){
     $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить аккаунт'}else{'Добавить аккаунт'};$d.Size=New-Object Drawing.Size(500,430);$d.StartPosition='CenterParent';$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
     $d.Controls.Add((Lbl 'Платформа' 20 20));$d.Controls.Add((Lbl 'Логин' 20 80));$d.Controls.Add((Lbl 'Пароль' 20 140));$d.Controls.Add((Lbl 'Комментарий' 20 200));$d.Controls.Add((Lbl 'Игры' 20 260))
