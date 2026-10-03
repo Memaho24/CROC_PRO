@@ -68,8 +68,8 @@ $sv=New-Object Windows.Forms.ToolStripStatusLabel;$sv.Text="Версия: $Versi
 $progress=New-Object Windows.Forms.ToolStripProgressBar;$progress.Visible=$false;$progress.Width=160;[void]$status.Items.Add($progress);$form.Controls.Add($status)
 
 # Home
-$home=New-Object Windows.Forms.TabPage;$home.Text='Главная';$home.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($home)
-$homeL=New-Object Windows.Forms.TableLayoutPanel;$homeL.Dock='Fill';$homeL.RowCount=2;$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$home.Controls.Add($homeL)
+$homeTab=New-Object Windows.Forms.TabPage;$homeTab.Text='Главная';$homeTab.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($home)
+$homeL=New-Object Windows.Forms.TableLayoutPanel;$homeL.Dock='Fill';$homeL.RowCount=2;$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$homeTab.Controls.Add($homeL)
 $homeText=New-Object Windows.Forms.TextBox;$homeText.Multiline=$true;$homeText.ReadOnly=$true;$homeText.ScrollBars='Vertical';$homeText.Dock='Fill';$homeText.Font=New-Object Drawing.Font('Consolas',11);Apply-ControlTheme $homeText;$homeL.Controls.Add($homeText,0,0)
 $hb=New-Flow;$homeBtn=New-Button 'Обновить статус';$hb.Controls.Add($homeBtn);$homeL.Controls.Add($hb,0,1)
 function Refresh-Home{
