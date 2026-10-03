@@ -49,14 +49,14 @@ function Toast($t,$m,$level='INFO'){Show-CcToast $t $m $level}
 
 # Adaptive shell: no fixed screen coordinates.
 $main=New-Object Windows.Forms.TableLayoutPanel;$main.Dock='Fill';$main.ColumnCount=1;$main.RowCount=3
-$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,100)))
-$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)))
-$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,28)))
+[void]$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,100)))
+[void]$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)))
+[void]$main.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,28)))
 $form.Controls.Add($main)
 $header=New-Object Windows.Forms.Panel;$header.Dock='Fill';$header.Padding=New-Object Windows.Forms.Padding(20,8,20,8);$header.BackColor=$C.Panel;$main.Controls.Add($header,0,0)
 $hl=New-Object Windows.Forms.TableLayoutPanel;$hl.Dock='Fill';$hl.ColumnCount=2;$hl.RowCount=2
-$hl.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,72)));$hl.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,28)))
-$hl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,65)));$hl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,35)));$header.Controls.Add($hl)
+[void]$hl.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,72)));[void]$hl.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,28)))
+[void]$hl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,65)));[void]$hl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,35)));$header.Controls.Add($hl)
 $titleLabel=New-Label 'CYBER CROC' 25;$titleLabel.Font=New-Object Drawing.Font('Segoe UI',25,[Drawing.FontStyle]::Bold);$titleLabel.ForeColor=[Drawing.Color]::FromArgb(57,255,20);$hl.Controls.Add($titleLabel,0,0)
 $subTitle=New-Label "Версия $Version  •  Разработчик: $Developer" 10;$subTitle.ForeColor=$C.Muted;$hl.Controls.Add($subTitle,0,1)
 $clockHeader=New-Label '' 12;$clockHeader.TextAlign='MiddleRight';$clockHeader.Dock='Fill';$hl.Controls.Add($clockHeader,1,0);$hl.SetRowSpan($clockHeader,2)
@@ -69,7 +69,7 @@ $progress=New-Object Windows.Forms.ToolStripProgressBar;$progress.Visible=$false
 
 # Home
 $homeTab=New-Object Windows.Forms.TabPage;$homeTab.Text='Главная';$homeTab.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($home)
-$homeL=New-Object Windows.Forms.TableLayoutPanel;$homeL.Dock='Fill';$homeL.RowCount=2;$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$homeTab.Controls.Add($homeL)
+$homeL=New-Object Windows.Forms.TableLayoutPanel;$homeL.Dock='Fill';$homeL.RowCount=2;[void]$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$homeL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$homeTab.Controls.Add($homeL)
 $homeText=New-Object Windows.Forms.TextBox;$homeText.Multiline=$true;$homeText.ReadOnly=$true;$homeText.ScrollBars='Vertical';$homeText.Dock='Fill';$homeText.Font=New-Object Drawing.Font('Consolas',11);Apply-ControlTheme $homeText;$homeL.Controls.Add($homeText,0,0)
 $hb=New-Flow;$homeBtn=New-Button 'Обновить статус';$hb.Controls.Add($homeBtn);$homeL.Controls.Add($hb,0,1)
 function Refresh-Home{
@@ -87,7 +87,7 @@ $homeBtn.Add_Click({Refresh-Home})
 # Games
 $games=New-Object Windows.Forms.TabPage;$games.Text='Игры';$games.Padding=New-Object Windows.Forms.Padding(8);[void]$tabs.TabPages.Add($games)
 $gl=New-Object Windows.Forms.TableLayoutPanel;$gl.Dock='Fill';$gl.RowCount=3
-$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,54)));$games.Controls.Add($gl)
+[void]$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));[void]$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$gl.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,54)));$games.Controls.Add($gl)
 $gt=New-Flow;$gameSearch=New-Object Windows.Forms.TextBox;$gameSearch.Width=280;$gameSearch.Height=30;Apply-ControlTheme $gameSearch;$gt.Controls.Add($gameSearch)
 $gameAdd=New-Button 'Добавить';$gameEdit=New-Button 'Изменить';$gameDelete=New-Button 'Удалить';foreach($b in @($gameAdd,$gameEdit,$gameDelete)){$gt.Controls.Add($b)};$gl.Controls.Add($gt,0,0)
 $gameList=New-Object Windows.Forms.ListView;$gameList.Dock='Fill';$gameList.View='Details';$gameList.FullRowSelect=$true;$gameList.GridLines=$true;$gameList.MultiSelect=$true
@@ -116,7 +116,7 @@ function Invoke-GameAction($g,[string]$Action){
 }
 function Show-GameDialog($existing=$null){
  $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить игру'}else{'Добавить игру'};$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(620,430);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
- $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=7;$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,150)));$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
+ $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=7;[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,150)));[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
  $names=@('Название','Путь проверки','Источник','Лаунчер','Steam AppID','Мин. версия');$f=@{}
  for($r=0;$r-lt 6;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t;$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
  if($existing){$f['Название'].Text=$existing.Name;$f['Путь проверки'].Text=$existing.PathCheck;$f['Источник'].Text=$existing.Source;$f['Лаунчер'].Text=$existing.Launcher;$f['Steam AppID'].Text=$existing.AppID;$f['Мин. версия'].Text=$existing.MinVersion}else{$f['Источник'].Text='steam'}
@@ -137,14 +137,14 @@ $gameAllUpdate.Add_Click({$progress.Visible=$true;$progress.Style='Marquee';fore
 
 # Accounts
 $accounts=New-Object Windows.Forms.TabPage;$accounts.Text='Аккаунты';$accounts.Padding=New-Object Windows.Forms.Padding(8);[void]$tabs.TabPages.Add($accounts)
-$al=New-Object Windows.Forms.TableLayoutPanel;$al.Dock='Fill';$al.ColumnCount=2;$al.RowCount=2;$al.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,75)));$al.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,25)));$al.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$al.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,45)));$accounts.Controls.Add($al)
+$al=New-Object Windows.Forms.TableLayoutPanel;$al.Dock='Fill';$al.ColumnCount=2;$al.RowCount=2;[void]$al.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,75)));[void]$al.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,25)));[void]$al.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$al.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,45)));$accounts.Controls.Add($al)
 $aList=New-Object Windows.Forms.ListView;$aList.View='Details';$aList.FullRowSelect=$true;$aList.Dock='Fill';foreach($h in @('Платформа','Логин','Статус','Бан','Последняя проверка')){[void]$aList.Columns.Add($h,145)};Apply-ControlTheme $aList;$al.Controls.Add($aList,0,0)
 $ab=New-Flow;$aAdd=New-Button 'Добавить';$aEdit=New-Button 'Изменить';$aDel=New-Button 'Удалить';$aCheck=New-Button 'Проверить';$aLogin=New-Button 'Сменить';$aExport=New-Button 'Экспорт';$aImport=New-Button 'Импорт';foreach($b in @($aAdd,$aEdit,$aDel,$aCheck,$aLogin,$aExport,$aImport)){$ab.Controls.Add($b)};$al.Controls.Add($ab,1,0)
 $aSearch=New-Object Windows.Forms.TextBox;$aSearch.Width=280;Apply-ControlTheme $aSearch;$al.Controls.Add($aSearch,0,1)
 function Refresh-Accounts([string]$q=''){try{$aList.Items.Clear();foreach($a in Get-CcAccounts){if($q -and "$($a.Platform) $($a.Login)" -notlike "*$q*"){continue};$i=New-Object Windows.Forms.ListViewItem($a.Platform);[void]$i.SubItems.Add($a.Login);[void]$i.SubItems.Add($a.Status);[void]$i.SubItems.Add($(if($a.Banned){'BAN'}else{'-'}));[void]$i.SubItems.Add([string]$a.LastCheck);$i.Tag=$a;[void]$aList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
 function Show-AccountDialog($existing=$null){
     $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить аккаунт'}else{'Добавить аккаунт'};$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(520,390);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
-    $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6;$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,130)));$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
+    $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6;[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,130)));[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
     $names=@('Платформа','Логин','Пароль','Комментарий','Игры');$f=@{}
     for($r=0;$r-lt 5;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t;$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
     if($existing){$f['Платформа'].Text=$existing.Platform;$f['Логин'].Text=$existing.Login;$f['Комментарий'].Text=$existing.Comment;$f['Игры'].Text=($existing.Games -join ',')}else{$f['Платформа'].Text='Steam'};$f['Пароль'].UseSystemPasswordChar=$true
@@ -163,7 +163,7 @@ $aSearch.Add_TextChanged({Refresh-Accounts $aSearch.Text})
 
 # Apps
 $app=New-Object Windows.Forms.TabPage;$app.Text='Приложения';$app.Padding=New-Object Windows.Forms.Padding(8);[void]$tabs.TabPages.Add($app)
-$appL=New-Object Windows.Forms.TableLayoutPanel;$appL.Dock='Fill';$appL.RowCount=2;$appL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$appL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$app.Controls.Add($appL)
+$appL=New-Object Windows.Forms.TableLayoutPanel;$appL.Dock='Fill';$appL.RowCount=2;[void]$appL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$appL.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,48)));$app.Controls.Add($appL)
 $appList=New-Object Windows.Forms.ListView;$appList.View='Details';$appList.FullRowSelect=$true;$appList.Dock='Fill';foreach($h in @('Название','Источник','Тип','Установлено','Действие')){[void]$appList.Columns.Add($h,170)};Apply-ControlTheme $appList;$appL.Controls.Add($appList,0,0)
 $appB=New-Flow;$appRun=New-Button 'Проверить программы';$appInstall=New-Button 'Установить / обновить';$appB.Controls.Add($appRun);$appB.Controls.Add($appInstall);$appL.Controls.Add($appB,0,1)
 function Run-AppTool([bool]$install){try{$args=@('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',(Join-Path $Tools 'Apps.ps1'));if($install){$args+=@('-Install','-Update')};$p=Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -Wait -PassThru;Toast 'Приложения' "Код $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-AppTool' -Exception $_.Exception}}
@@ -175,13 +175,13 @@ $cleanup=New-Object Windows.Forms.TabPage;$cleanup.Text='Очистка';$cleanu
 function Run-HiddenCmd([string]$Name){try{$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+(Join-Path $Root $Name)+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' "${Name}: $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception}}
 $backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$cleanupBtn.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
 $logs=New-Object Windows.Forms.TabPage;$logs.Text='Логи';$logs.Padding=New-Object Windows.Forms.Padding(8);[void]$tabs.TabPages.Add($logs)
-$ll=New-Object Windows.Forms.TableLayoutPanel;$ll.Dock='Fill';$ll.RowCount=2;$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,45)));$logs.Controls.Add($ll)
+$ll=New-Object Windows.Forms.TableLayoutPanel;$ll.Dock='Fill';$ll.RowCount=2;[void]$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,45)));$logs.Controls.Add($ll)
 $logText=New-Object Windows.Forms.TextBox;$logText.Multiline=$true;$logText.ReadOnly=$true;$logText.ScrollBars='Both';$logText.Dock='Fill';$logText.Font=New-Object Drawing.Font('Consolas',9);Apply-ControlTheme $logText;$ll.Controls.Add($logText,0,0);$lp=New-Flow;$logBtn=New-Button 'Обновить';$lp.Controls.Add($logBtn);$ll.Controls.Add($lp,0,1)
 function Refresh-Logs{try{$p=Join-Path $Root 'logs\CyberCroc.log';$e=Join-Path $Root 'logs\errors.log';$s='';if(Test-Path $p){$s+=Get-Content $p -Raw};if(Test-Path $e){$s+=[Environment]::NewLine+'===== ERRORS ====='+[Environment]::NewLine+(Get-Content $e -Raw)};$logText.Text=$s}catch{}};$logBtn.Add_Click({Refresh-Logs})
 
 # Settings / live theme
 $settings=New-Object Windows.Forms.TabPage;$settings.Text='Настройки';$settings.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($settings)
-$set=New-Object Windows.Forms.TableLayoutPanel;$set.Dock='Top';$set.AutoSize=$true;$set.ColumnCount=2;$set.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,180)));$set.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$settings.Controls.Add($set)
+$set=New-Object Windows.Forms.TableLayoutPanel;$set.Dock='Top';$set.AutoSize=$true;$set.ColumnCount=2;[void]$set.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,180)));[void]$set.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$settings.Controls.Add($set)
 [void]$set.Controls.Add((New-Label 'Тема'),0,0);$theme=New-Object Windows.Forms.ComboBox;$theme.DropDownStyle='DropDownList';$theme.Items.AddRange(@('dark','neon','light'));$theme.SelectedItem=$ThemeName;$theme.Width=220;Apply-ControlTheme $theme;$set.Controls.Add($theme,1,0)
 [void]$set.Controls.Add((New-Label 'SMB update'),0,1);$share=New-Object Windows.Forms.TextBox;$share.Text=$cfg['UPDATE_SHARE'];$share.Dock='Fill';Apply-ControlTheme $share;$set.Controls.Add($share,1,1)
 $setB=New-Flow;$save=New-Button 'Сохранить настройки';$update=New-Button 'Проверить обновления сейчас';$setB.Controls.Add($save);$setB.Controls.Add($update);$set.Controls.Add($setB,1,2)
