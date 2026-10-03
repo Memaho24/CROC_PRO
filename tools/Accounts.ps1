@@ -1,607 +1,165 @@
 ﻿<#
 CyberCroc Accounts - PowerShell 5.1.
-Passwords are protected with Windows DPAPI for the current Windows user.
+Account storage, DPAPI protection and optional LAN synchronization.
 #>
 Set-StrictMode -Version 2.0
 . (Join-Path $PSScriptRoot 'Core.ps1')
 
-$script:CcAccountsFile=Join-Path $script:CcRoot 'accounts.json'
+$script:CcAccountsFile = Join-Path $script:CcRoot 'accounts.json'
 
 function Initialize-CcAccounts {
     try {
-        if(-not (Test-Path -LiteralPath $script:CcAccountsFile)){
-            @{Version=1;Accounts=@()} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:CcAccountsFile -Encoding UTF8
+        if (-not (Test-Path -LiteralPath $script:CcAccountsFile)) {
+            @{ Version = 1; Accounts = @() } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:CcAccountsFile -Encoding UTF8
         }
     } catch { Write-CcError -FunctionName 'Initialize-CcAccounts' -Exception $_.Exception }
 }
-function Protect-CcSecret([string]$PlainText) {
-    try { if($null -eq $PlainText){return ''}; ConvertTo-SecureString $PlainText -AsPlainText -Force | ConvertFrom-SecureString } catch { Write-CcError -FunctionName 'Protect-CcSecret' -Exception $_.Exception; return '' }
-}
-function Unprotect-CcSecret([string]$CipherText) {
+
+function Protect-CcSecret {
+    param([string]$PlainText)
     try {
-        if([string]::IsNullOrWhiteSpace($CipherText)){return ''}
-        $sec=ConvertTo-SecureString $CipherText
-        $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-        try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
+        if ($null -eq $PlainText) { return '' }
+        return (ConvertTo-SecureString $PlainText -AsPlainText -Force | ConvertFrom-SecureString)
+    } catch { Write-CcError -FunctionName 'Protect-CcSecret' -Exception $_.Exception; return '' }
+}
+
+function Unprotect-CcSecret {
+    param([string]$CipherText)
+    try {
+        if ([string]::IsNullOrWhiteSpace($CipherText)) { return '' }
+        $sec = ConvertTo-SecureString $CipherText
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+        try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
     } catch { Write-CcError -FunctionName 'Unprotect-CcSecret' -Exception $_.Exception; return '' }
 }
+
 function Get-CcAccountsSharePath {
     try {
-        $cfgFile=Join-Path $script:CcRoot 'config.ini'
-        $share=''
-        if(Test-Path -LiteralPath $cfgFile){
-            foreach($line in Get-Content -LiteralPath $cfgFile -Encoding UTF8){
-                if($line -match '^ACCOUNTS_SHARE=(.*)
-    try {
-        Initialize-CcAccounts
-        $raw=Get-Content -LiteralPath $script:CcAccountsFile -Raw -Encoding UTF8
-        $j=$raw|ConvertFrom-Json
-        if($null -eq $j.Accounts){return @()}
-        return @($j.Accounts)
-    } catch { Write-CcError -FunctionName 'Get-CcAccounts' -Exception $_.Exception; return @() }
-}
-function Save-CcAccounts {
-    param([object[]]$Accounts)
-    try {
-        $tmp="$script:CcAccountsFile.tmp"
-        @{Version=1;Accounts=@($Accounts)}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
-        Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
-        Write-CcLog "Accounts saved: $(@($Accounts).Count)" 'OK' 'Save-CcAccounts'
-        return $true
-    } catch { Write-CcError -FunctionName 'Save-CcAccounts' -Exception $_.Exception; return $false }
-}
-function New-CcAccount {
-    param([string]$Platform,[string]$Login,[string]$Password,[string]$Comment,[string[]]$Games)
-    try {
-        if($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')){throw "Unsupported platform: $Platform"}
-        if([string]::IsNullOrWhiteSpace($Login)){throw 'Login is required'}
-        $list=@(Get-CcAccounts)
-        $obj=[pscustomobject]@{
-            Id=[guid]::NewGuid().ToString()
-            Platform=$Platform
-            Login=$Login
-            PasswordProtected=(Protect-CcSecret $Password)
-            Comment=$Comment
-            Games=@($Games|Where-Object{$_})
-            Status='not_checked'
-            UsedBy=''
-            UsedSince=''
-            Banned=$false
-            BanText=''
-            LastCheck=''
-            Library=@()
-        }
-        $list+= $obj
-        Save-CcAccounts $list|Out-Null
-        Sync-CcAccounts Push|Out-Null
-        Write-CcLog "Account added: $Platform / $Login" 'OK' 'New-CcAccount'
-        return $obj
-    } catch { Write-CcError -FunctionName 'New-CcAccount' -Exception $_.Exception; return $null }
-}
-function Update-CcAccount {
-    param([string]$Id,[hashtable]$Values)
-    try {
-        $list=@(Get-CcAccounts); $a=$list|Where-Object{$_.Id -eq $Id}|Select-Object -First 1
-        if(-not $a){throw "Account not found: $Id"}
-        foreach($k in $Values.Keys){
-            if($k -eq 'Password'){ $a.PasswordProtected=Protect-CcSecret ([string]$Values[$k]) }
-            elseif($k -eq 'Games'){ $a.Games=@($Values[$k]) }
-            elseif($k -in @('Platform','Login','Comment','Status','UsedBy','UsedSince')){$a.$k=[string]$Values[$k]}
-        }
-        Save-CcAccounts $list|Out-Null; Sync-CcAccounts Push|Out-Null; Write-CcLog "Account updated: $Id" 'OK' 'Update-CcAccount'; return $a
-    } catch { Write-CcError -FunctionName 'Update-CcAccount' -Exception $_.Exception; return $null }
-}
-function Remove-CcAccount {
-    param([string]$Id)
-    try {
-        $list=@(Get-CcAccounts); $new=@($list|Where-Object{$_.Id -ne $Id})
-        if($new.Count -eq $list.Count){throw "Account not found: $Id"}
-        Save-CcAccounts $new|Out-Null; Sync-CcAccounts Push|Out-Null; Write-CcLog "Account removed: $Id" 'OK' 'Remove-CcAccount'; return $true
-    } catch { Write-CcError -FunctionName 'Remove-CcAccount' -Exception $_.Exception; return $false }
-}
-function Get-CcSteamExe {
-    try {
-        $candidates=@()
-        foreach($k in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')){
-            try{$p=Get-ItemProperty -LiteralPath $k -ErrorAction Stop; foreach($n in 'SteamPath','InstallPath'){if($p.$n){$candidates+=(Join-Path $p.$n 'steam.exe')}}}catch{}
-        }
-        $candidates+=@('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
-        foreach($c in $candidates){if(Test-Path -LiteralPath $c){return $c}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception; return $null }
-}
-function Get-CcSteamId64([string]$SteamRoot,[string]$Login) {
-    try {
-        $f=Join-Path $SteamRoot 'config\loginusers.vdf'; if(-not(Test-Path $f)){return ''}
-        $txt=Get-Content $f -Raw -ErrorAction Stop
-        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')){
-            if($m.Groups['body'].Value -match '"AccountName"\s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
-        }
-        $first=[regex]::Match($txt,'"(\d{17})"'); if($first.Success){return $first.Groups[1].Value}
-        return ''
-    } catch { Write-CcError -FunctionName 'Get-CcSteamId64' -Exception $_.Exception; return '' }
-}
-function Test-CcSteamAccount {
-    param([object]$Account,[string]$ApiKey)
-    try {
-        if([string]::IsNullOrWhiteSpace($ApiKey)){return [pscustomobject]@{Ok=$false;Reason='STEAM_API_KEY is not configured';Library=@();Banned=$false}}
-        $exe=Get-CcSteamExe; if(-not $exe){return [pscustomobject]@{Ok=$false;Reason='Steam not installed';Library=@();Banned=$false}}
-        $root=Split-Path $exe -Parent; $sid=Get-CcSteamId64 $root $Account.Login
-        if(-not $sid){return [pscustomobject]@{Ok=$false;Reason='SteamID64 not found in loginusers.vdf';Library=@();Banned=$false}}
-        $headers=@{'User-Agent'='CyberCroc/0.4'}
-        $gamesUri="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=$ApiKey&steamid=$sid&include_appinfo=1&include_played_free_games=1"
-        $banUri="https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=$ApiKey&steamids=$sid"
-        $g=Invoke-RestMethod -Uri $gamesUri -Headers $headers -TimeoutSec 20
-        $b=Invoke-RestMethod -Uri $banUri -Headers $headers -TimeoutSec 20
-        $lib=@($g.response.games|ForEach-Object{[pscustomobject]@{Name=$_.name;Hours=[math]::Round(([double]$_.playtime_forever/60),1)}})
-        $bp=$b.players|Select-Object -First 1
-        [pscustomobject]@{Ok=$true;Reason='OK';Library=$lib;Banned=([bool]($bp.VACBanned -or $bp.NumberOfGameBans));BanText=("VAC={0}; GameBans={1}" -f $bp.VACBanned,$bp.NumberOfGameBans)}
-    } catch { Write-CcError -FunctionName 'Test-CcSteamAccount' -Exception $_.Exception; return [pscustomobject]@{Ok=$false;Reason=$_.Exception.Message;Library=@();Banned=$false} }
-}
-function Test-CcAccount {
-    param([object]$Account,[hashtable]$Config)
-    try {
-        $r=$null
-        if($Account.Platform -eq 'Steam'){$r=Test-CcSteamAccount $Account $Config['STEAM_API_KEY']}
-        else {$r=[pscustomobject]@{Ok=$false;Reason='Public API does not provide a reliable account library/ban check for this platform';Library=@();Banned=$false}}
-        $Account.LastCheck=(Get-Date).ToString('s')
-        $Account.Library=@($r.Library)
-        $Account.Banned=[bool]$r.Banned
-        $Account.BanText=[string]$r.BanText
-        $Account.Status=if($r.Banned){'ban'}elseif($r.Ok){'free'}else{'not_checked'}
-        if(-not $r.Ok){$Account.Comment=if($Account.Comment){$Account.Comment}else{"Check: $($r.Reason)"}}
-        Write-CcLog "Account check: $($Account.Platform)/$($Account.Login) => $($Account.Status)" $(if($r.Ok){'OK'}else{'WARN'}) 'Test-CcAccount'
-        return $r
-    } catch { Write-CcError -FunctionName 'Test-CcAccount' -Exception $_.Exception; return $null }
-}
-function Start-CcAccountSession {
-    param([object]$Account)
-    try {
-        switch($Account.Platform){
-            'Steam' {
-                $exe=Get-CcSteamExe;if(-not $exe){throw 'Steam not found'}
-                if(Get-Process -Name steam -ErrorAction SilentlyContinue){Get-Process -Name steam -ErrorAction SilentlyContinue|Stop-Process -Force;Start-Sleep 2}
-                $pw=Unprotect-CcSecret $Account.PasswordProtected
-                # Steam accepts -login, but command-line credentials are visible to local process inspection.
-                if($pw){Start-Process -FilePath $exe -ArgumentList @('-login',$Account.Login,$pw) -WindowStyle Hidden|Out-Null}
-                else{Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null}
-            }
-            'Riot Games' {
-                $exe=Get-CcLauncherExe 'RiotClientServices.exe'
-                if(-not $exe){throw 'Riot Client not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--launch-product=league_of_legends','--launch-patchline=live') -WindowStyle Hidden|Out-Null
-            }
-            'Battle.net' {
-                $exe=Get-CcLauncherExe 'Battle.net.exe'
-                if(-not $exe){throw 'Battle.net not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--exec=launch') -WindowStyle Hidden|Out-Null
-            }
-            'Epic Games' {
-                $exe=Get-CcLauncherExe 'EpicGamesLauncher.exe'
-                if(-not $exe){throw 'Epic Games Launcher not found'}
-                # Epic auth tokens are launcher-managed; do not extract or log them.
-                Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null
+        $cfgFile = Join-Path $script:CcRoot 'config.ini'
+        if (-not (Test-Path -LiteralPath $cfgFile)) { return '' }
+
+        $share = ''
+        foreach ($line in Get-Content -LiteralPath $cfgFile -Encoding UTF8) {
+            $trimmed = $line.Trim()
+            if ($trimmed -match '^ACCOUNTS_SHARE=(.*)$') {
+                $share = $Matches[1].Trim()
+                break
             }
         }
-        $Account.Status='occupied';$Account.UsedBy=$env:USERNAME;$Account.UsedSince=(Get-Date).ToString('s')
-        Write-CcLog "Account session started: $($Account.Platform)/$($Account.Login)" 'OK' 'Start-CcAccountSession'
-        return $true
-    } catch { Write-CcError -FunctionName 'Start-CcAccountSession' -Exception $_.Exception; return $false }
-}
-function Get-CcLauncherExe([string]$Name) {
-    try {
-        $roots=@($env:ProgramFiles,$env:ProgramFilesX86,$env:ProgramData,$env:LOCALAPPDATA,$env:APPDATA)|Where-Object{$_}
-        foreach($r in $roots){$hit=Get-ChildItem -LiteralPath $r -Filter $Name -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if($hit){return $hit.FullName}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcLauncherExe' -Exception $_.Exception; return $null }
-}
-Initialize-CcAccounts
-){$share=$Matches[1].Trim();break}
-                if(-not $share -and $line -match '^UPDATE_SHARE=(.*)
-    try {
-        Initialize-CcAccounts
-        $raw=Get-Content -LiteralPath $script:CcAccountsFile -Raw -Encoding UTF8
-        $j=$raw|ConvertFrom-Json
-        if($null -eq $j.Accounts){return @()}
-        return @($j.Accounts)
-    } catch { Write-CcError -FunctionName 'Get-CcAccounts' -Exception $_.Exception; return @() }
-}
-function Save-CcAccounts {
-    param([object[]]$Accounts)
-    try {
-        $tmp="$script:CcAccountsFile.tmp"
-        @{Version=1;Accounts=@($Accounts)}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
-        Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
-        Write-CcLog "Accounts saved: $(@($Accounts).Count)" 'OK' 'Save-CcAccounts'
-        return $true
-    } catch { Write-CcError -FunctionName 'Save-CcAccounts' -Exception $_.Exception; return $false }
-}
-function New-CcAccount {
-    param([string]$Platform,[string]$Login,[string]$Password,[string]$Comment,[string[]]$Games)
-    try {
-        if($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')){throw "Unsupported platform: $Platform"}
-        if([string]::IsNullOrWhiteSpace($Login)){throw 'Login is required'}
-        $list=@(Get-CcAccounts)
-        $obj=[pscustomobject]@{
-            Id=[guid]::NewGuid().ToString()
-            Platform=$Platform
-            Login=$Login
-            PasswordProtected=(Protect-CcSecret $Password)
-            Comment=$Comment
-            Games=@($Games|Where-Object{$_})
-            Status='not_checked'
-            UsedBy=''
-            UsedSince=''
-            Banned=$false
-            BanText=''
-            LastCheck=''
-            Library=@()
-        }
-        $list+= $obj
-        Save-CcAccounts $list|Out-Null
-        Write-CcLog "Account added: $Platform / $Login" 'OK' 'New-CcAccount'
-        return $obj
-    } catch { Write-CcError -FunctionName 'New-CcAccount' -Exception $_.Exception; return $null }
-}
-function Update-CcAccount {
-    param([string]$Id,[hashtable]$Values)
-    try {
-        $list=@(Get-CcAccounts); $a=$list|Where-Object{$_.Id -eq $Id}|Select-Object -First 1
-        if(-not $a){throw "Account not found: $Id"}
-        foreach($k in $Values.Keys){
-            if($k -eq 'Password'){ $a.PasswordProtected=Protect-CcSecret ([string]$Values[$k]) }
-            elseif($k -eq 'Games'){ $a.Games=@($Values[$k]) }
-            elseif($k -in @('Platform','Login','Comment','Status','UsedBy','UsedSince')){$a.$k=[string]$Values[$k]}
-        }
-        Save-CcAccounts $list|Out-Null; Write-CcLog "Account updated: $Id" 'OK' 'Update-CcAccount'; return $a
-    } catch { Write-CcError -FunctionName 'Update-CcAccount' -Exception $_.Exception; return $null }
-}
-function Remove-CcAccount {
-    param([string]$Id)
-    try {
-        $list=@(Get-CcAccounts); $new=@($list|Where-Object{$_.Id -ne $Id})
-        if($new.Count -eq $list.Count){throw "Account not found: $Id"}
-        Save-CcAccounts $new|Out-Null; Write-CcLog "Account removed: $Id" 'OK' 'Remove-CcAccount'; return $true
-    } catch { Write-CcError -FunctionName 'Remove-CcAccount' -Exception $_.Exception; return $false }
-}
-function Get-CcSteamExe {
-    try {
-        $candidates=@()
-        foreach($k in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')){
-            try{$p=Get-ItemProperty -LiteralPath $k -ErrorAction Stop; foreach($n in 'SteamPath','InstallPath'){if($p.$n){$candidates+=(Join-Path $p.$n 'steam.exe')}}}catch{}
-        }
-        $candidates+=@('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
-        foreach($c in $candidates){if(Test-Path -LiteralPath $c){return $c}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception; return $null }
-}
-function Get-CcSteamId64([string]$SteamRoot,[string]$Login) {
-    try {
-        $f=Join-Path $SteamRoot 'config\loginusers.vdf'; if(-not(Test-Path $f)){return ''}
-        $txt=Get-Content $f -Raw -ErrorAction Stop
-        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')){
-            if($m.Groups['body'].Value -match '"AccountName"\s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
-        }
-        $first=[regex]::Match($txt,'"(\d{17})"'); if($first.Success){return $first.Groups[1].Value}
-        return ''
-    } catch { Write-CcError -FunctionName 'Get-CcSteamId64' -Exception $_.Exception; return '' }
-}
-function Test-CcSteamAccount {
-    param([object]$Account,[string]$ApiKey)
-    try {
-        if([string]::IsNullOrWhiteSpace($ApiKey)){return [pscustomobject]@{Ok=$false;Reason='STEAM_API_KEY is not configured';Library=@();Banned=$false}}
-        $exe=Get-CcSteamExe; if(-not $exe){return [pscustomobject]@{Ok=$false;Reason='Steam not installed';Library=@();Banned=$false}}
-        $root=Split-Path $exe -Parent; $sid=Get-CcSteamId64 $root $Account.Login
-        if(-not $sid){return [pscustomobject]@{Ok=$false;Reason='SteamID64 not found in loginusers.vdf';Library=@();Banned=$false}}
-        $headers=@{'User-Agent'='CyberCroc/0.4'}
-        $gamesUri="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=$ApiKey&steamid=$sid&include_appinfo=1&include_played_free_games=1"
-        $banUri="https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=$ApiKey&steamids=$sid"
-        $g=Invoke-RestMethod -Uri $gamesUri -Headers $headers -TimeoutSec 20
-        $b=Invoke-RestMethod -Uri $banUri -Headers $headers -TimeoutSec 20
-        $lib=@($g.response.games|ForEach-Object{[pscustomobject]@{Name=$_.name;Hours=[math]::Round(([double]$_.playtime_forever/60),1)}})
-        $bp=$b.players|Select-Object -First 1
-        [pscustomobject]@{Ok=$true;Reason='OK';Library=$lib;Banned=([bool]($bp.VACBanned -or $bp.NumberOfGameBans));BanText=("VAC={0}; GameBans={1}" -f $bp.VACBanned,$bp.NumberOfGameBans)}
-    } catch { Write-CcError -FunctionName 'Test-CcSteamAccount' -Exception $_.Exception; return [pscustomobject]@{Ok=$false;Reason=$_.Exception.Message;Library=@();Banned=$false} }
-}
-function Test-CcAccount {
-    param([object]$Account,[hashtable]$Config)
-    try {
-        $r=$null
-        if($Account.Platform -eq 'Steam'){$r=Test-CcSteamAccount $Account $Config['STEAM_API_KEY']}
-        else {$r=[pscustomobject]@{Ok=$false;Reason='Public API does not provide a reliable account library/ban check for this platform';Library=@();Banned=$false}}
-        $Account.LastCheck=(Get-Date).ToString('s')
-        $Account.Library=@($r.Library)
-        $Account.Banned=[bool]$r.Banned
-        $Account.BanText=[string]$r.BanText
-        $Account.Status=if($r.Banned){'ban'}elseif($r.Ok){'free'}else{'not_checked'}
-        if(-not $r.Ok){$Account.Comment=if($Account.Comment){$Account.Comment}else{"Check: $($r.Reason)"}}
-        Write-CcLog "Account check: $($Account.Platform)/$($Account.Login) => $($Account.Status)" $(if($r.Ok){'OK'}else{'WARN'}) 'Test-CcAccount'
-        return $r
-    } catch { Write-CcError -FunctionName 'Test-CcAccount' -Exception $_.Exception; return $null }
-}
-function Start-CcAccountSession {
-    param([object]$Account)
-    try {
-        switch($Account.Platform){
-            'Steam' {
-                $exe=Get-CcSteamExe;if(-not $exe){throw 'Steam not found'}
-                if(Get-Process -Name steam -ErrorAction SilentlyContinue){Get-Process -Name steam -ErrorAction SilentlyContinue|Stop-Process -Force;Start-Sleep 2}
-                $pw=Unprotect-CcSecret $Account.PasswordProtected
-                # Steam accepts -login, but command-line credentials are visible to local process inspection.
-                if($pw){Start-Process -FilePath $exe -ArgumentList @('-login',$Account.Login,$pw) -WindowStyle Hidden|Out-Null}
-                else{Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null}
-            }
-            'Riot Games' {
-                $exe=Get-CcLauncherExe 'RiotClientServices.exe'
-                if(-not $exe){throw 'Riot Client not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--launch-product=league_of_legends','--launch-patchline=live') -WindowStyle Hidden|Out-Null
-            }
-            'Battle.net' {
-                $exe=Get-CcLauncherExe 'Battle.net.exe'
-                if(-not $exe){throw 'Battle.net not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--exec=launch') -WindowStyle Hidden|Out-Null
-            }
-            'Epic Games' {
-                $exe=Get-CcLauncherExe 'EpicGamesLauncher.exe'
-                if(-not $exe){throw 'Epic Games Launcher not found'}
-                # Epic auth tokens are launcher-managed; do not extract or log them.
-                Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null
-            }
-        }
-        $Account.Status='occupied';$Account.UsedBy=$env:USERNAME;$Account.UsedSince=(Get-Date).ToString('s')
-        Write-CcLog "Account session started: $($Account.Platform)/$($Account.Login)" 'OK' 'Start-CcAccountSession'
-        return $true
-    } catch { Write-CcError -FunctionName 'Start-CcAccountSession' -Exception $_.Exception; return $false }
-}
-function Get-CcLauncherExe([string]$Name) {
-    try {
-        $roots=@($env:ProgramFiles,$env:ProgramFilesX86,$env:ProgramData,$env:LOCALAPPDATA,$env:APPDATA)|Where-Object{$_}
-        foreach($r in $roots){$hit=Get-ChildItem -LiteralPath $r -Filter $Name -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if($hit){return $hit.FullName}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcLauncherExe' -Exception $_.Exception; return $null }
-}
-Initialize-CcAccounts
-){$share=$Matches[1].Trim()}
-            }
-        }
-        if([string]::IsNullOrWhiteSpace($share)){return ''}
-        if($share -match '\\
-    try {
-        Initialize-CcAccounts
-        $raw=Get-Content -LiteralPath $script:CcAccountsFile -Raw -Encoding UTF8
-        $j=$raw|ConvertFrom-Json
-        if($null -eq $j.Accounts){return @()}
-        return @($j.Accounts)
-    } catch { Write-CcError -FunctionName 'Get-CcAccounts' -Exception $_.Exception; return @() }
-}
-function Save-CcAccounts {
-    param([object[]]$Accounts)
-    try {
-        $tmp="$script:CcAccountsFile.tmp"
-        @{Version=1;Accounts=@($Accounts)}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
-        Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
-        Write-CcLog "Accounts saved: $(@($Accounts).Count)" 'OK' 'Save-CcAccounts'
-        return $true
-    } catch { Write-CcError -FunctionName 'Save-CcAccounts' -Exception $_.Exception; return $false }
-}
-function New-CcAccount {
-    param([string]$Platform,[string]$Login,[string]$Password,[string]$Comment,[string[]]$Games)
-    try {
-        if($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')){throw "Unsupported platform: $Platform"}
-        if([string]::IsNullOrWhiteSpace($Login)){throw 'Login is required'}
-        $list=@(Get-CcAccounts)
-        $obj=[pscustomobject]@{
-            Id=[guid]::NewGuid().ToString()
-            Platform=$Platform
-            Login=$Login
-            PasswordProtected=(Protect-CcSecret $Password)
-            Comment=$Comment
-            Games=@($Games|Where-Object{$_})
-            Status='not_checked'
-            UsedBy=''
-            UsedSince=''
-            Banned=$false
-            BanText=''
-            LastCheck=''
-            Library=@()
-        }
-        $list+= $obj
-        Save-CcAccounts $list|Out-Null
-        Write-CcLog "Account added: $Platform / $Login" 'OK' 'New-CcAccount'
-        return $obj
-    } catch { Write-CcError -FunctionName 'New-CcAccount' -Exception $_.Exception; return $null }
-}
-function Update-CcAccount {
-    param([string]$Id,[hashtable]$Values)
-    try {
-        $list=@(Get-CcAccounts); $a=$list|Where-Object{$_.Id -eq $Id}|Select-Object -First 1
-        if(-not $a){throw "Account not found: $Id"}
-        foreach($k in $Values.Keys){
-            if($k -eq 'Password'){ $a.PasswordProtected=Protect-CcSecret ([string]$Values[$k]) }
-            elseif($k -eq 'Games'){ $a.Games=@($Values[$k]) }
-            elseif($k -in @('Platform','Login','Comment','Status','UsedBy','UsedSince')){$a.$k=[string]$Values[$k]}
-        }
-        Save-CcAccounts $list|Out-Null; Write-CcLog "Account updated: $Id" 'OK' 'Update-CcAccount'; return $a
-    } catch { Write-CcError -FunctionName 'Update-CcAccount' -Exception $_.Exception; return $null }
-}
-function Remove-CcAccount {
-    param([string]$Id)
-    try {
-        $list=@(Get-CcAccounts); $new=@($list|Where-Object{$_.Id -ne $Id})
-        if($new.Count -eq $list.Count){throw "Account not found: $Id"}
-        Save-CcAccounts $new|Out-Null; Write-CcLog "Account removed: $Id" 'OK' 'Remove-CcAccount'; return $true
-    } catch { Write-CcError -FunctionName 'Remove-CcAccount' -Exception $_.Exception; return $false }
-}
-function Get-CcSteamExe {
-    try {
-        $candidates=@()
-        foreach($k in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')){
-            try{$p=Get-ItemProperty -LiteralPath $k -ErrorAction Stop; foreach($n in 'SteamPath','InstallPath'){if($p.$n){$candidates+=(Join-Path $p.$n 'steam.exe')}}}catch{}
-        }
-        $candidates+=@('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
-        foreach($c in $candidates){if(Test-Path -LiteralPath $c){return $c}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception; return $null }
-}
-function Get-CcSteamId64([string]$SteamRoot,[string]$Login) {
-    try {
-        $f=Join-Path $SteamRoot 'config\loginusers.vdf'; if(-not(Test-Path $f)){return ''}
-        $txt=Get-Content $f -Raw -ErrorAction Stop
-        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')){
-            if($m.Groups['body'].Value -match '"AccountName"\s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
-        }
-        $first=[regex]::Match($txt,'"(\d{17})"'); if($first.Success){return $first.Groups[1].Value}
-        return ''
-    } catch { Write-CcError -FunctionName 'Get-CcSteamId64' -Exception $_.Exception; return '' }
-}
-function Test-CcSteamAccount {
-    param([object]$Account,[string]$ApiKey)
-    try {
-        if([string]::IsNullOrWhiteSpace($ApiKey)){return [pscustomobject]@{Ok=$false;Reason='STEAM_API_KEY is not configured';Library=@();Banned=$false}}
-        $exe=Get-CcSteamExe; if(-not $exe){return [pscustomobject]@{Ok=$false;Reason='Steam not installed';Library=@();Banned=$false}}
-        $root=Split-Path $exe -Parent; $sid=Get-CcSteamId64 $root $Account.Login
-        if(-not $sid){return [pscustomobject]@{Ok=$false;Reason='SteamID64 not found in loginusers.vdf';Library=@();Banned=$false}}
-        $headers=@{'User-Agent'='CyberCroc/0.4'}
-        $gamesUri="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=$ApiKey&steamid=$sid&include_appinfo=1&include_played_free_games=1"
-        $banUri="https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=$ApiKey&steamids=$sid"
-        $g=Invoke-RestMethod -Uri $gamesUri -Headers $headers -TimeoutSec 20
-        $b=Invoke-RestMethod -Uri $banUri -Headers $headers -TimeoutSec 20
-        $lib=@($g.response.games|ForEach-Object{[pscustomobject]@{Name=$_.name;Hours=[math]::Round(([double]$_.playtime_forever/60),1)}})
-        $bp=$b.players|Select-Object -First 1
-        [pscustomobject]@{Ok=$true;Reason='OK';Library=$lib;Banned=([bool]($bp.VACBanned -or $bp.NumberOfGameBans));BanText=("VAC={0}; GameBans={1}" -f $bp.VACBanned,$bp.NumberOfGameBans)}
-    } catch { Write-CcError -FunctionName 'Test-CcSteamAccount' -Exception $_.Exception; return [pscustomobject]@{Ok=$false;Reason=$_.Exception.Message;Library=@();Banned=$false} }
-}
-function Test-CcAccount {
-    param([object]$Account,[hashtable]$Config)
-    try {
-        $r=$null
-        if($Account.Platform -eq 'Steam'){$r=Test-CcSteamAccount $Account $Config['STEAM_API_KEY']}
-        else {$r=[pscustomobject]@{Ok=$false;Reason='Public API does not provide a reliable account library/ban check for this platform';Library=@();Banned=$false}}
-        $Account.LastCheck=(Get-Date).ToString('s')
-        $Account.Library=@($r.Library)
-        $Account.Banned=[bool]$r.Banned
-        $Account.BanText=[string]$r.BanText
-        $Account.Status=if($r.Banned){'ban'}elseif($r.Ok){'free'}else{'not_checked'}
-        if(-not $r.Ok){$Account.Comment=if($Account.Comment){$Account.Comment}else{"Check: $($r.Reason)"}}
-        Write-CcLog "Account check: $($Account.Platform)/$($Account.Login) => $($Account.Status)" $(if($r.Ok){'OK'}else{'WARN'}) 'Test-CcAccount'
-        return $r
-    } catch { Write-CcError -FunctionName 'Test-CcAccount' -Exception $_.Exception; return $null }
-}
-function Start-CcAccountSession {
-    param([object]$Account)
-    try {
-        switch($Account.Platform){
-            'Steam' {
-                $exe=Get-CcSteamExe;if(-not $exe){throw 'Steam not found'}
-                if(Get-Process -Name steam -ErrorAction SilentlyContinue){Get-Process -Name steam -ErrorAction SilentlyContinue|Stop-Process -Force;Start-Sleep 2}
-                $pw=Unprotect-CcSecret $Account.PasswordProtected
-                # Steam accepts -login, but command-line credentials are visible to local process inspection.
-                if($pw){Start-Process -FilePath $exe -ArgumentList @('-login',$Account.Login,$pw) -WindowStyle Hidden|Out-Null}
-                else{Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null}
-            }
-            'Riot Games' {
-                $exe=Get-CcLauncherExe 'RiotClientServices.exe'
-                if(-not $exe){throw 'Riot Client not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--launch-product=league_of_legends','--launch-patchline=live') -WindowStyle Hidden|Out-Null
-            }
-            'Battle.net' {
-                $exe=Get-CcLauncherExe 'Battle.net.exe'
-                if(-not $exe){throw 'Battle.net not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--exec=launch') -WindowStyle Hidden|Out-Null
-            }
-            'Epic Games' {
-                $exe=Get-CcLauncherExe 'EpicGamesLauncher.exe'
-                if(-not $exe){throw 'Epic Games Launcher not found'}
-                # Epic auth tokens are launcher-managed; do not extract or log them.
-                Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null
-            }
-        }
-        $Account.Status='occupied';$Account.UsedBy=$env:USERNAME;$Account.UsedSince=(Get-Date).ToString('s')
-        Write-CcLog "Account session started: $($Account.Platform)/$($Account.Login)" 'OK' 'Start-CcAccountSession'
-        return $true
-    } catch { Write-CcError -FunctionName 'Start-CcAccountSession' -Exception $_.Exception; return $false }
-}
-function Get-CcLauncherExe([string]$Name) {
-    try {
-        $roots=@($env:ProgramFiles,$env:ProgramFilesX86,$env:ProgramData,$env:LOCALAPPDATA,$env:APPDATA)|Where-Object{$_}
-        foreach($r in $roots){$hit=Get-ChildItem -LiteralPath $r -Filter $Name -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if($hit){return $hit.FullName}}
-        return $null
-    } catch { Write-CcError -FunctionName 'Get-CcLauncherExe' -Exception $_.Exception; return $null }
-}
-Initialize-CcAccounts
-){return $share+'accounts.json'}
+
+        if ([string]::IsNullOrWhiteSpace($share)) { return '' }
         return (Join-Path $share 'accounts.json')
-    } catch { Write-CcError -FunctionName 'Get-CcAccountsSharePath' -Exception $_.Exception; return '' }
-}
-function Sync-CcAccounts {
-    param([ValidateSet('Pull','Push')][string]$Mode='Pull')
-    try {
-        $share=Get-CcAccountsSharePath
-        if([string]::IsNullOrWhiteSpace($share)){return $false}
-        $dir=Split-Path -Parent $share
-        if(-not(Test-Path -LiteralPath $dir)){return $false}
-        if($Mode -eq 'Pull'){
-            if(-not(Test-Path -LiteralPath $share)){return $false}
-            $local=@(Get-CcAccounts)
-            $remoteRaw=Get-Content -LiteralPath $share -Raw -Encoding UTF8
-            $remote=$remoteRaw|ConvertFrom-Json
-            $remoteList=@($remote.Accounts)
-            $byId=@{};foreach($a in $local){if($a.Id){$byId[[string]$a.Id]=$a}}
-            foreach($a in $remoteList){
-                if($a.Id -and $byId.ContainsKey([string]$a.Id) -and $byId[[string]$a.Id].PasswordProtected -and -not $a.PasswordProtected){
-                    $a.PasswordProtected=$byId[[string]$a.Id].PasswordProtected
-                }
-            }
-            if((Get-Item $share).LastWriteTimeUtc -gt (Get-Item $script:CcAccountsFile).LastWriteTimeUtc){
-                $tmp="$script:CcAccountsFile.sync.tmp"
-                @{Version=1;Accounts=$remoteList}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
-                Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
-                Write-CcLog "Accounts pulled from LAN share: $share" 'OK' 'Sync-CcAccounts'
-                return $true
-            }
-            return $false
-        }
-        $tmp="$share.sync.tmp"
-        $local=@(Get-CcAccounts)
-        @{Version=1;Accounts=$local}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
-        Move-Item -LiteralPath $tmp -Destination $share -Force
-        Write-CcLog "Accounts pushed to LAN share: $share" 'OK' 'Sync-CcAccounts'
-        return $true
-    } catch { Write-CcError -FunctionName 'Sync-CcAccounts' -Exception $_.Exception; return $false }
+    } catch {
+        Write-CcError -FunctionName 'Get-CcAccountsSharePath' -Exception $_.Exception
+        return ''
+    }
 }
 
 function Get-CcAccounts {
     try {
         Initialize-CcAccounts
-        $raw=Get-Content -LiteralPath $script:CcAccountsFile -Raw -Encoding UTF8
-        $j=$raw|ConvertFrom-Json
-        if($null -eq $j.Accounts){return @()}
-        return @($j.Accounts)
-    } catch { Write-CcError -FunctionName 'Get-CcAccounts' -Exception $_.Exception; return @() }
+        $raw = Get-Content -LiteralPath $script:CcAccountsFile -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
+
+        $json = $raw | ConvertFrom-Json
+        if ($null -eq $json -or $null -eq $json.Accounts) { return @() }
+        return @($json.Accounts)
+    } catch {
+        Write-CcError -FunctionName 'Get-CcAccounts' -Exception $_.Exception
+        return @()
+    }
 }
+
 function Save-CcAccounts {
     param([object[]]$Accounts)
     try {
-        $tmp="$script:CcAccountsFile.tmp"
-        @{Version=1;Accounts=@($Accounts)}|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $tmp -Encoding UTF8
+        $tmp = "$script:CcAccountsFile.tmp"
+        @{ Version = 1; Accounts = @($Accounts) } | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $tmp -Encoding UTF8
         Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
         Write-CcLog "Accounts saved: $(@($Accounts).Count)" 'OK' 'Save-CcAccounts'
         return $true
-    } catch { Write-CcError -FunctionName 'Save-CcAccounts' -Exception $_.Exception; return $false }
+    } catch {
+        Write-CcError -FunctionName 'Save-CcAccounts' -Exception $_.Exception
+        return $false
+    }
 }
+
+function Sync-CcAccounts {
+    param([ValidateSet('Pull','Push')][string]$Mode = 'Pull')
+
+    try {
+        $share = Get-CcAccountsSharePath
+        if ([string]::IsNullOrWhiteSpace($share)) { return $false }
+
+        if ($Mode -eq 'Pull') {
+            if (-not (Test-Path -LiteralPath $share)) { return $false }
+
+            $localInfo = Get-Item -LiteralPath $script:CcAccountsFile -ErrorAction SilentlyContinue
+            $remoteInfo = Get-Item -LiteralPath $share -ErrorAction Stop
+            if ($null -ne $localInfo -and $remoteInfo.LastWriteTimeUtc -le $localInfo.LastWriteTimeUtc) { return $false }
+
+            $remoteRaw = Get-Content -LiteralPath $share -Raw -Encoding UTF8
+            if ([string]::IsNullOrWhiteSpace($remoteRaw)) { return $false }
+
+            $remoteJson = $remoteRaw | ConvertFrom-Json
+            if ($null -eq $remoteJson -or $null -eq $remoteJson.Accounts) { return $false }
+
+            $remoteList = @($remoteJson.Accounts)
+            $localList = @(Get-CcAccounts)
+            $localById = @{}
+
+            foreach ($account in $localList) {
+                if ($account.Id) { $localById[[string]$account.Id] = $account }
+            }
+
+            foreach ($account in $remoteList) {
+                if ($account.Id -and $localById.ContainsKey([string]$account.Id)) {
+                    $local = $localById[[string]$account.Id]
+                    if ([string]::IsNullOrWhiteSpace([string]$account.PasswordProtected) -and
+                        -not [string]::IsNullOrWhiteSpace([string]$local.PasswordProtected)) {
+                        $account.PasswordProtected = $local.PasswordProtected
+                    }
+                }
+            }
+
+            $tmp = "$script:CcAccountsFile.sync.tmp"
+            @{ Version = 1; Accounts = $remoteList } | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $tmp -Encoding UTF8
+            Move-Item -LiteralPath $tmp -Destination $script:CcAccountsFile -Force
+            Write-CcLog "Accounts pulled from LAN share: $share" 'OK' 'Sync-CcAccounts'
+            return $true
+        }
+
+        $shareDir = Split-Path -Parent $share
+        if ([string]::IsNullOrWhiteSpace($shareDir) -or -not (Test-Path -LiteralPath $shareDir)) { return $false }
+
+        $localList = @(Get-CcAccounts)
+        $tmp = "$share.tmp"
+        @{ Version = 1; Accounts = $localList } | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $tmp -Encoding UTF8
+        Move-Item -LiteralPath $tmp -Destination $share -Force
+
+        Write-CcLog "Accounts pushed to LAN share: $share" 'OK' 'Sync-CcAccounts'
+        return $true
+    } catch {
+        Write-CcError -FunctionName 'Sync-CcAccounts' -Exception $_.Exception
+        return $false
+    }
+}
+
 function New-CcAccount {
     param([string]$Platform,[string]$Login,[string]$Password,[string]$Comment,[string[]]$Games)
     try {
-        if($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')){throw "Unsupported platform: $Platform"}
-        if([string]::IsNullOrWhiteSpace($Login)){throw 'Login is required'}
-        $list=@(Get-CcAccounts)
-        $obj=[pscustomobject]@{
+        if ($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')) { throw "Unsupported platform: $Platform" }
+        if ([string]::IsNullOrWhiteSpace($Login)) { throw 'Login is required' }
+
+        $list = @(Get-CcAccounts)
+        $account = [pscustomobject]@{
             Id=[guid]::NewGuid().ToString()
             Platform=$Platform
             Login=$Login
             PasswordProtected=(Protect-CcSecret $Password)
             Comment=$Comment
-            Games=@($Games|Where-Object{$_})
+            Games=@($Games | Where-Object { $_ })
             Status='not_checked'
             UsedBy=''
             UsedSince=''
@@ -610,127 +168,237 @@ function New-CcAccount {
             LastCheck=''
             Library=@()
         }
-        $list+= $obj
-        Save-CcAccounts $list|Out-Null
+
+        $list += $account
+        if (-not (Save-CcAccounts $list)) { throw 'Could not save accounts.json' }
+        [void](Sync-CcAccounts -Mode Push)
         Write-CcLog "Account added: $Platform / $Login" 'OK' 'New-CcAccount'
-        return $obj
-    } catch { Write-CcError -FunctionName 'New-CcAccount' -Exception $_.Exception; return $null }
+        return $account
+    } catch {
+        Write-CcError -FunctionName 'New-CcAccount' -Exception $_.Exception
+        return $null
+    }
 }
+
 function Update-CcAccount {
     param([string]$Id,[hashtable]$Values)
     try {
-        $list=@(Get-CcAccounts); $a=$list|Where-Object{$_.Id -eq $Id}|Select-Object -First 1
-        if(-not $a){throw "Account not found: $Id"}
-        foreach($k in $Values.Keys){
-            if($k -eq 'Password'){ $a.PasswordProtected=Protect-CcSecret ([string]$Values[$k]) }
-            elseif($k -eq 'Games'){ $a.Games=@($Values[$k]) }
-            elseif($k -in @('Platform','Login','Comment','Status','UsedBy','UsedSince')){$a.$k=[string]$Values[$k]}
+        $list = @(Get-CcAccounts)
+        $account = $list | Where-Object { $_.Id -eq $Id } | Select-Object -First 1
+        if ($null -eq $account) { throw "Account not found: $Id" }
+
+        foreach ($key in $Values.Keys) {
+            if ($key -eq 'Password') { $account.PasswordProtected = Protect-CcSecret ([string]$Values[$key]) }
+            elseif ($key -eq 'Games') { $account.Games = @($Values[$key]) }
+            elseif ($key -in @('Platform','Login','Comment','Status','UsedBy','UsedSince')) { $account.$key = [string]$Values[$key] }
         }
-        Save-CcAccounts $list|Out-Null; Write-CcLog "Account updated: $Id" 'OK' 'Update-CcAccount'; return $a
-    } catch { Write-CcError -FunctionName 'Update-CcAccount' -Exception $_.Exception; return $null }
+
+        if (-not (Save-CcAccounts $list)) { throw 'Could not save accounts.json' }
+        [void](Sync-CcAccounts -Mode Push)
+        Write-CcLog "Account updated: $Id" 'OK' 'Update-CcAccount'
+        return $account
+    } catch {
+        Write-CcError -FunctionName 'Update-CcAccount' -Exception $_.Exception
+        return $null
+    }
 }
+
 function Remove-CcAccount {
     param([string]$Id)
     try {
-        $list=@(Get-CcAccounts); $new=@($list|Where-Object{$_.Id -ne $Id})
-        if($new.Count -eq $list.Count){throw "Account not found: $Id"}
-        Save-CcAccounts $new|Out-Null; Write-CcLog "Account removed: $Id" 'OK' 'Remove-CcAccount'; return $true
-    } catch { Write-CcError -FunctionName 'Remove-CcAccount' -Exception $_.Exception; return $false }
+        $list = @(Get-CcAccounts)
+        $newList = @($list | Where-Object { $_.Id -ne $Id })
+        if ($newList.Count -eq $list.Count) { throw "Account not found: $Id" }
+        if (-not (Save-CcAccounts $newList)) { throw 'Could not save accounts.json' }
+        [void](Sync-CcAccounts -Mode Push)
+        Write-CcLog "Account removed: $Id" 'OK' 'Remove-CcAccount'
+        return $true
+    } catch {
+        Write-CcError -FunctionName 'Remove-CcAccount' -Exception $_.Exception
+        return $false
+    }
 }
+
 function Get-CcSteamExe {
     try {
-        $candidates=@()
-        foreach($k in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')){
-            try{$p=Get-ItemProperty -LiteralPath $k -ErrorAction Stop; foreach($n in 'SteamPath','InstallPath'){if($p.$n){$candidates+=(Join-Path $p.$n 'steam.exe')}}}catch{}
+        $candidates = @()
+        foreach ($key in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')) {
+            try {
+                $props = Get-ItemProperty -LiteralPath $key -ErrorAction Stop
+                foreach ($name in @('SteamPath','InstallPath')) {
+                    if ($props.$name) { $candidates += (Join-Path $props.$name 'steam.exe') }
+                }
+            } catch {}
         }
-        $candidates+=@('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
-        foreach($c in $candidates){if(Test-Path -LiteralPath $c){return $c}}
+
+        $candidates += @('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
+        foreach ($candidate in $candidates) {
+            if (Test-Path -LiteralPath $candidate) { return $candidate }
+        }
         return $null
-    } catch { Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception; return $null }
+    } catch {
+        Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception
+        return $null
+    }
 }
-function Get-CcSteamId64([string]$SteamRoot,[string]$Login) {
+
+function Get-CcSteamId64 {
+    param([string]$SteamRoot,[string]$Login)
     try {
-        $f=Join-Path $SteamRoot 'config\loginusers.vdf'; if(-not(Test-Path $f)){return ''}
-        $txt=Get-Content $f -Raw -ErrorAction Stop
-        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')){
-            if($m.Groups['body'].Value -match '"AccountName"\s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
+        $file = Join-Path $SteamRoot 'config\loginusers.vdf'
+        if (-not (Test-Path -LiteralPath $file)) { return '' }
+
+        $text = Get-Content -LiteralPath $file -Raw -ErrorAction Stop
+        foreach ($match in [regex]::Matches($text,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')) {
+            if ($match.Groups['body'].Value -match '"AccountName"\s+"' + [regex]::Escape($Login) + '"') {
+                return $match.Groups['id'].Value
+            }
         }
-        $first=[regex]::Match($txt,'"(\d{17})"'); if($first.Success){return $first.Groups[1].Value}
+
+        $first = [regex]::Match($text,'"(d{17})"')
+        if ($first.Success) { return $first.Groups[1].Value }
         return ''
-    } catch { Write-CcError -FunctionName 'Get-CcSteamId64' -Exception $_.Exception; return '' }
+    } catch {
+        Write-CcError -FunctionName 'Get-CcSteamId64' -Exception $_.Exception
+        return ''
+    }
 }
+
 function Test-CcSteamAccount {
     param([object]$Account,[string]$ApiKey)
     try {
-        if([string]::IsNullOrWhiteSpace($ApiKey)){return [pscustomobject]@{Ok=$false;Reason='STEAM_API_KEY is not configured';Library=@();Banned=$false}}
-        $exe=Get-CcSteamExe; if(-not $exe){return [pscustomobject]@{Ok=$false;Reason='Steam not installed';Library=@();Banned=$false}}
-        $root=Split-Path $exe -Parent; $sid=Get-CcSteamId64 $root $Account.Login
-        if(-not $sid){return [pscustomobject]@{Ok=$false;Reason='SteamID64 not found in loginusers.vdf';Library=@();Banned=$false}}
+        if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+            return [pscustomobject]@{Ok=$false;Reason='STEAM_API_KEY is not configured';Library=@();Banned=$false;BanText=''}
+        }
+
+        $exe = Get-CcSteamExe
+        if (-not $exe) {
+            return [pscustomobject]@{Ok=$false;Reason='Steam not installed';Library=@();Banned=$false;BanText=''}
+        }
+
+        $root = Split-Path $exe -Parent
+        $steamId = Get-CcSteamId64 -SteamRoot $root -Login $Account.Login
+        if (-not $steamId) {
+            return [pscustomobject]@{Ok=$false;Reason='SteamID64 not found in loginusers.vdf';Library=@();Banned=$false;BanText=''}
+        }
+
         $headers=@{'User-Agent'='CyberCroc/0.4'}
-        $gamesUri="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=$ApiKey&steamid=$sid&include_appinfo=1&include_played_free_games=1"
-        $banUri="https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=$ApiKey&steamids=$sid"
-        $g=Invoke-RestMethod -Uri $gamesUri -Headers $headers -TimeoutSec 20
-        $b=Invoke-RestMethod -Uri $banUri -Headers $headers -TimeoutSec 20
-        $lib=@($g.response.games|ForEach-Object{[pscustomobject]@{Name=$_.name;Hours=[math]::Round(([double]$_.playtime_forever/60),1)}})
-        $bp=$b.players|Select-Object -First 1
-        [pscustomobject]@{Ok=$true;Reason='OK';Library=$lib;Banned=([bool]($bp.VACBanned -or $bp.NumberOfGameBans));BanText=("VAC={0}; GameBans={1}" -f $bp.VACBanned,$bp.NumberOfGameBans)}
-    } catch { Write-CcError -FunctionName 'Test-CcSteamAccount' -Exception $_.Exception; return [pscustomobject]@{Ok=$false;Reason=$_.Exception.Message;Library=@();Banned=$false} }
+        $gamesUri="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=$ApiKey&steamid=$steamId&include_appinfo=1&include_played_free_games=1"
+        $banUri="https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=$ApiKey&steamids=$steamId"
+        $gamesResponse=Invoke-RestMethod -Uri $gamesUri -Headers $headers -TimeoutSec 20
+        $banResponse=Invoke-RestMethod -Uri $banUri -Headers $headers -TimeoutSec 20
+
+        $library=@($gamesResponse.response.games | ForEach-Object {
+            [pscustomobject]@{Name=$_.name;Hours=[math]::Round(([double]$_.playtime_forever/60),1)}
+        })
+
+        $banPlayer=$banResponse.players | Select-Object -First 1
+        $banned=$false
+        $banText=''
+        if ($null -ne $banPlayer) {
+            $banned=[bool]($banPlayer.VACBanned -or $banPlayer.NumberOfGameBans)
+            $banText="VAC=$($banPlayer.VACBanned); GameBans=$($banPlayer.NumberOfGameBans)"
+        }
+
+        return [pscustomobject]@{Ok=$true;Reason='OK';Library=$library;Banned=$banned;BanText=$banText}
+    } catch {
+        Write-CcError -FunctionName 'Test-CcSteamAccount' -Exception $_.Exception
+        return [pscustomobject]@{Ok=$false;Reason=$_.Exception.Message;Library=@();Banned=$false;BanText=''}
+    }
 }
+
 function Test-CcAccount {
     param([object]$Account,[hashtable]$Config)
     try {
-        $r=$null
-        if($Account.Platform -eq 'Steam'){$r=Test-CcSteamAccount $Account $Config['STEAM_API_KEY']}
-        else {$r=[pscustomobject]@{Ok=$false;Reason='Public API does not provide a reliable account library/ban check for this platform';Library=@();Banned=$false}}
+        if ($Account.Platform -eq 'Steam') {
+            $apiKey=''
+            if ($Config.ContainsKey('STEAM_API_KEY')) { $apiKey=[string]$Config['STEAM_API_KEY'] }
+            $result=Test-CcSteamAccount -Account $Account -ApiKey $apiKey
+        } else {
+            $result=[pscustomobject]@{Ok=$false;Reason='Public API does not provide a reliable account library/ban check for this platform';Library=@();Banned=$false;BanText=''}
+        }
+
         $Account.LastCheck=(Get-Date).ToString('s')
-        $Account.Library=@($r.Library)
-        $Account.Banned=[bool]$r.Banned
-        $Account.BanText=[string]$r.BanText
-        $Account.Status=if($r.Banned){'ban'}elseif($r.Ok){'free'}else{'not_checked'}
-        if(-not $r.Ok){$Account.Comment=if($Account.Comment){$Account.Comment}else{"Check: $($r.Reason)"}}
-        Write-CcLog "Account check: $($Account.Platform)/$($Account.Login) => $($Account.Status)" $(if($r.Ok){'OK'}else{'WARN'}) 'Test-CcAccount'
-        return $r
-    } catch { Write-CcError -FunctionName 'Test-CcAccount' -Exception $_.Exception; return $null }
+        $Account.Library=@($result.Library)
+        $Account.Banned=[bool]$result.Banned
+        $Account.BanText=[string]$result.BanText
+        if ($result.Banned) { $Account.Status='ban' }
+        elseif ($result.Ok) { $Account.Status='free' }
+        else { $Account.Status='not_checked' }
+
+        if (-not $result.Ok -and [string]::IsNullOrWhiteSpace([string]$Account.Comment)) {
+            $Account.Comment="Check: $($result.Reason)"
+        }
+
+        Write-CcLog "Account check: $($Account.Platform)/$($Account.Login) => $($Account.Status)" $(if($result.Ok){'OK'}else{'WARN'}) 'Test-CcAccount'
+        return $result
+    } catch {
+        Write-CcError -FunctionName 'Test-CcAccount' -Exception $_.Exception
+        return $null
+    }
 }
+
 function Start-CcAccountSession {
     param([object]$Account)
     try {
-        switch($Account.Platform){
+        switch ($Account.Platform) {
             'Steam' {
-                $exe=Get-CcSteamExe;if(-not $exe){throw 'Steam not found'}
-                if(Get-Process -Name steam -ErrorAction SilentlyContinue){Get-Process -Name steam -ErrorAction SilentlyContinue|Stop-Process -Force;Start-Sleep 2}
-                $pw=Unprotect-CcSecret $Account.PasswordProtected
-                # Steam accepts -login, but command-line credentials are visible to local process inspection.
-                if($pw){Start-Process -FilePath $exe -ArgumentList @('-login',$Account.Login,$pw) -WindowStyle Hidden|Out-Null}
-                else{Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null}
+                $exe=Get-CcSteamExe
+                if (-not $exe) { throw 'Steam not found' }
+                $steamProcesses=@(Get-Process -Name steam -ErrorAction SilentlyContinue)
+                if ($steamProcesses.Count -gt 0) {
+                    $steamProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 2
+                }
+                $password=Unprotect-CcSecret $Account.PasswordProtected
+                if ($password) {
+                    Start-Process -FilePath $exe -ArgumentList @('-login',$Account.Login,$password) -WindowStyle Hidden | Out-Null
+                } else {
+                    Start-Process -FilePath $exe -WindowStyle Hidden | Out-Null
+                }
             }
             'Riot Games' {
                 $exe=Get-CcLauncherExe 'RiotClientServices.exe'
-                if(-not $exe){throw 'Riot Client not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--launch-product=league_of_legends','--launch-patchline=live') -WindowStyle Hidden|Out-Null
+                if (-not $exe) { throw 'Riot Client not found' }
+                Start-Process -FilePath $exe -ArgumentList @('--launch-product=league_of_legends','--launch-patchline=live') -WindowStyle Hidden | Out-Null
             }
             'Battle.net' {
                 $exe=Get-CcLauncherExe 'Battle.net.exe'
-                if(-not $exe){throw 'Battle.net not found'}
-                Start-Process -FilePath $exe -ArgumentList @('--exec=launch') -WindowStyle Hidden|Out-Null
+                if (-not $exe) { throw 'Battle.net not found' }
+                Start-Process -FilePath $exe -ArgumentList @('--exec=launch') -WindowStyle Hidden | Out-Null
             }
             'Epic Games' {
                 $exe=Get-CcLauncherExe 'EpicGamesLauncher.exe'
-                if(-not $exe){throw 'Epic Games Launcher not found'}
-                # Epic auth tokens are launcher-managed; do not extract or log them.
-                Start-Process -FilePath $exe -WindowStyle Hidden|Out-Null
+                if (-not $exe) { throw 'Epic Games Launcher not found' }
+                Start-Process -FilePath $exe -WindowStyle Hidden | Out-Null
             }
+            default { throw "Unsupported platform: $($Account.Platform)" }
         }
-        $Account.Status='occupied';$Account.UsedBy=$env:USERNAME;$Account.UsedSince=(Get-Date).ToString('s')
+
+        $Account.Status='occupied'
+        $Account.UsedBy=$env:USERNAME
+        $Account.UsedSince=(Get-Date).ToString('s')
         Write-CcLog "Account session started: $($Account.Platform)/$($Account.Login)" 'OK' 'Start-CcAccountSession'
         return $true
-    } catch { Write-CcError -FunctionName 'Start-CcAccountSession' -Exception $_.Exception; return $false }
+    } catch {
+        Write-CcError -FunctionName 'Start-CcAccountSession' -Exception $_.Exception
+        return $false
+    }
 }
-function Get-CcLauncherExe([string]$Name) {
+
+function Get-CcLauncherExe {
+    param([string]$Name)
     try {
-        $roots=@($env:ProgramFiles,$env:ProgramFilesX86,$env:ProgramData,$env:LOCALAPPDATA,$env:APPDATA)|Where-Object{$_}
-        foreach($r in $roots){$hit=Get-ChildItem -LiteralPath $r -Filter $Name -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if($hit){return $hit.FullName}}
+        $roots=@($env:ProgramFiles,$env:ProgramFilesX86,$env:ProgramData,$env:LOCALAPPDATA,$env:APPDATA) | Where-Object { $_ }
+        foreach ($root in $roots) {
+            $hit=Get-ChildItem -LiteralPath $root -Filter $Name -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($hit) { return $hit.FullName }
+        }
         return $null
-    } catch { Write-CcError -FunctionName 'Get-CcLauncherExe' -Exception $_.Exception; return $null }
+    } catch {
+        Write-CcError -FunctionName 'Get-CcLauncherExe' -Exception $_.Exception
+        return $null
+    }
 }
+
 Initialize-CcAccounts
