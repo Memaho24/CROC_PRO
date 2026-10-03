@@ -110,7 +110,10 @@ function Refresh-Home{
     }catch{$cardPC.Controls[1].Text='ОШИБКА';$cardPC.Controls[1].ForeColor=$C.Danger;Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception}
 }
 $homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Компьютер проверен.' 'OK'}finally{$progress.Visible=$false}})
+$homeCleanup.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
+$homeBackup.Add_Click({Run-HiddenCmd 'Backup.cmd'})
 $pages['home']=$home
+$home.Controls[0].BringToFront()
 
 # Games
 $games=New-Object Windows.Forms.Panel;$games.Dock='Fill';$games.BackColor=$C.Bg;$games.Controls.Add((New-PageTitle 'Игры' 'Выберите игру и нажмите нужную большую кнопку.'))
@@ -137,6 +140,7 @@ $gameInstall.Add_Click({if($gameList.SelectedItems.Count){Invoke-GameAction $gam
 $gameUpdate.Add_Click({if($gameList.SelectedItems.Count){Invoke-GameAction $gameList.SelectedItems[0].Tag 'Update';Refresh-Games $gameSearch.Text}else{Toast 'Игры' 'Сначала выберите игру.' 'INFO'}})
 $gameAdd.Add_Click({Toast 'Игры' 'Добавление игры доступно через настройки списка игр.' 'INFO'})
 $pages['games']=$games
+$games.Controls[0].BringToFront()
 
 # Accounts
 $accounts=New-Object Windows.Forms.Panel;$accounts.Dock='Fill';$accounts.BackColor=$C.Bg;$accounts.Controls.Add((New-PageTitle 'Аккаунты' 'Игровые аккаунты клуба. Не нужно открывать отдельные программы.'))
@@ -153,6 +157,7 @@ $aAdd.Add_Click({Toast 'Аккаунты' 'Добавление аккаунта
 $aEdit.Add_Click({Toast 'Аккаунты' 'Редактирование аккаунта оставлено в текущем менеджере.' 'INFO'})
 $aDel.Add_Click({if($aList.SelectedItems.Count){Remove-CcAccount $aList.SelectedItems[0].Tag.Id|Out-Null;Refresh-Accounts}})
 $pages['accounts']=$accounts
+$accounts.Controls[0].BringToFront()
 
 # Applications
 $app=New-Object Windows.Forms.Panel;$app.Dock='Fill';$app.BackColor=$C.Bg;$app.Controls.Add((New-PageTitle 'Программы' 'Проверка и установка нужных программ для клуба.'))
@@ -165,12 +170,15 @@ function Run-AppTool([bool]$Install){
     try{$args=@('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',(Join-Path $Tools 'Apps.ps1'));if($Install){$args+=@('-Install','-Update')};$p=Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -Wait -PassThru;Toast 'Программы' $(if($p.ExitCode -eq 0){'Готово.'}else{"Операция завершилась с кодом $($p.ExitCode)."}) $(if($p.ExitCode -eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-AppTool' -Exception $_.Exception}
 }
 $appCheck.Add_Click({$progress.Visible=$true;try{Run-AppTool $false}finally{$progress.Visible=$false}});$appInstall.Add_Click({$progress.Visible=$true;try{Run-AppTool $true}finally{$progress.Visible=$false}});$pages['apps']=$app
+$app.Controls[0].BringToFront()
 
 # Backup and cleanup
 $backup=New-Object Windows.Forms.Panel;$backup.Dock='Fill';$backup.BackColor=$C.Bg;$backup.Controls.Add((New-PageTitle 'Резервная копия' 'Сохраните важные данные перед обслуживанием ПК.'))
 $bb=New-Flow;$bb.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$backup.Controls.Add($bb);$backupInfo=New-Card 'БЭКАП' 'ГОТОВ' 'создаёт резервную копию';$bb.Controls.Add($backupInfo);$backupBtn=New-Button 'СДЕЛАТЬ БЭКАП' 250 70;$bb.Controls.Add($backupBtn);$backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$pages['backup']=$backup
+$backup.Controls[0].BringToFront()
 $cleanup=New-Object Windows.Forms.Panel;$cleanup.Dock='Fill';$cleanup.BackColor=$C.Bg;$cleanup.Controls.Add((New-PageTitle 'Очистка ПК' 'Удаление временных файлов и мусора.'))
 $cb=New-Flow;$cb.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$cleanup.Controls.Add($cb);$cleanupInfo=New-Card 'ОЧИСТКА' 'БЕЗОПАСНО' 'личные файлы не трогаются';$cb.Controls.Add($cleanupInfo);$cleanupBtn=New-Button 'ОЧИСТИТЬ ПК' 250 70;$cb.Controls.Add($cleanupBtn);$cleanupBtn.Add_Click({Run-HiddenCmd 'Cleanup.cmd'});$pages['cleanup']=$cleanup
+$cleanup.Controls[0].BringToFront()
 
 # Logs
 $logs=New-Object Windows.Forms.Panel;$logs.Dock='Fill';$logs.BackColor=$C.Bg;$logs.Controls.Add((New-PageTitle 'Журнал' 'Техническая информация. Нужна в основном администратору.'))
@@ -180,6 +188,7 @@ $logText=New-Object Windows.Forms.TextBox;$logText.Multiline=$true;$logText.Read
 $logBtn=New-Button 'Обновить журнал' 190 50;$logArea.Controls.Add($logBtn,0,1)
 function Refresh-Logs{try{$p=Join-Path $Root 'logs\CyberCroc.log';$e=Join-Path $Root 'logs\errors.log';$s='';if(Test-Path $p){$s+=Get-Content $p -Raw};if(Test-Path $e){$s+=[Environment]::NewLine+'===== ОШИБКИ ====='+[Environment]::NewLine+(Get-Content $e -Raw)};$logText.Text=$s}catch{}}
 $logBtn.Add_Click({Refresh-Logs});$pages['logs']=$logs
+$logs.Controls[0].BringToFront()
 
 # Settings
 $settings=New-Object Windows.Forms.Panel;$settings.Dock='Fill';$settings.BackColor=$C.Bg;$settings.Controls.Add((New-PageTitle 'Настройки' 'Изменяйте только то, что действительно нужно.'))
@@ -195,6 +204,7 @@ $theme.Add_SelectedIndexChanged({Set-Theme $theme.Text;Apply-Theme})
 $saveSettings.Add_Click({try{$cfg['THEME']=$theme.Text;$cfg['UPDATE_SHARE']=$share.Text;$lines=@();foreach($k in $cfg.Keys){$lines+=($k+'='+$cfg[$k])};Set-Content (Join-Path $Root 'config.ini') ($lines -join [Environment]::NewLine) -Encoding UTF8;Apply-Theme;Toast 'Настройки' 'Настройки сохранены.' 'OK'}catch{Write-CcError -FunctionName 'SaveSettings' -Exception $_.Exception}})
 $checkUpdate.Add_Click({try{$u=Join-Path $Tools 'Updater.ps1';$p=Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',$u,'-Check','-Source',$share.Text) -WindowStyle Hidden -Wait -PassThru;Toast 'Обновление' $(if($p.ExitCode -eq 0){'Проверка завершена.'}else{"Код $($p.ExitCode)"}) 'INFO'}catch{Write-CcError -FunctionName 'UpdateNow' -Exception $_.Exception}})
 $pages['settings']=$settings
+$settings.Controls[0].BringToFront()
 
 function Run-HiddenCmd([string]$Name){
     try{$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+(Join-Path $Root $Name)+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' $(if($p.ExitCode -eq 0){"$Name завершено."}else{"$($Name): ошибка $($p.ExitCode)"}) $(if($p.ExitCode -eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception}
