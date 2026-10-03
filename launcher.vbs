@@ -51,12 +51,16 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-cmd = """" & psExe & """" & _
-      " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & """"
+' Run through cmd.exe only for diagnostic redirection.
+' The console itself stays hidden.
+cmd = """" & shell.ExpandEnvironmentStrings("%ComSpec%") & """" & _
+      " /d /s /c """"" & psExe & _
+      """ -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & _
+      """ >> """ & logFile & """ 2>&1"""
 
 LogLine "PowerShell: " & psExe
 LogLine "Script: " & ps1
-LogLine "Starting PowerShell..."
+LogLine "Starting PowerShell with output capture..."
 
 On Error Resume Next
 rc = shell.Run(cmd, 0, True)
@@ -69,13 +73,12 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-LogLine "PowerShell exited with code: " & rc
+LogLine "PowerShell/CMD exited with code: " & rc
 
 If rc <> 0 Then
-    MsgBox "CyberCroc не запустился или завершился с ошибкой." & vbCrLf & vbCrLf & _
+    MsgBox "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & _
            "Код: " & rc & vbCrLf & _
-           "Лог запуска: " & logFile & vbCrLf & _
-           "Лог ошибок: " & fso.BuildPath(logDir, "errors.log"), _
+           "Откройте лог запуска:" & vbCrLf & logFile, _
            16, "CyberCroc"
     WScript.Quit rc
 End If
