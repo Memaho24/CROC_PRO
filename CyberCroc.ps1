@@ -1,4 +1,13 @@
 ﻿$ErrorActionPreference='Stop'
+trap {
+    try {
+        $logDir=Join-Path $PSScriptRoot 'logs'
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        $line='[{0}] [FATAL] [CyberCroc.ps1] {1} :: {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$_.Exception.Message,$_.Exception.ToString()
+        Add-Content -LiteralPath (Join-Path $logDir 'errors.log') -Value $line -Encoding UTF8
+    } catch {}
+    throw
+}
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -82,8 +91,8 @@ $C.Control=[Drawing.Color]::FromArgb(26,26,26)
 $C.Fg=$C.Accent
 $C.Muted=[Drawing.Color]::FromArgb(125,145,125)
 $C.White=[Drawing.Color]::White
-$C.Danger=[Drawing.Color]::FromArgb(255,80,80)
-$C.Warning=[Drawing.Color]::FromArgb(255,190,50)
+$C['Danger']=[Drawing.Color]::FromArgb(255,80,80)
+$C['Warning']=[Drawing.Color]::FromArgb(255,190,50)
 
 function Set-Theme([string]$Name){
     $script:ThemeName=$Name
@@ -171,9 +180,9 @@ function Refresh-Home{
     try{
         $h=Get-CcHardware;$c=Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue;$free=if($c){[math]::Round($c.FreeSpace/1GB,1)}else{0};$size=if($c){[math]::Round($c.Size/1GB,1)}else{0}
         $share=[string]$cfg['UPDATE_SHARE'];$online=if($share -and (Test-Path -LiteralPath $share)){$true}else{$false}
-        $cardPC.Controls[1].Text='ГОТОВ';$cardPC.Controls[1].ForeColor=$C.Accent;$cardDisk.Controls[1].Text="$free GB";$cardDisk.Controls[2].Text="из $size GB";$cardNet.Controls[1].Text=if($online){'ONLINE'}else{'OFFLINE'};$cardNet.Controls[1].ForeColor=if($online){$C.Accent}else{$C.Warning}
+        $cardPC.Controls[1].Text='ГОТОВ';$cardPC.Controls[1].ForeColor=$C.Accent;$cardDisk.Controls[1].Text="$free GB";$cardDisk.Controls[2].Text="из $size GB";$cardNet.Controls[1].Text=if($online){'ONLINE'}else{'OFFLINE'};$cardNet.Controls[1].ForeColor=if($online){$C.Accent}else{$C['Warning']}
         $footer.Text="ПК: $env:COMPUTERNAME   •   CyberCroc $Version   •   CPU: $($h.CPU)"
-    }catch{$cardPC.Controls[1].Text='ОШИБКА';$cardPC.Controls[1].ForeColor=$C.Danger;Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception}
+    }catch{$cardPC.Controls[1].Text='ОШИБКА';$cardPC.Controls[1].ForeColor=$C['Danger'];Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception}
 }
 $homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Компьютер проверен.' 'OK'}finally{$progress.Visible=$false}})
 $homeCleanup.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
