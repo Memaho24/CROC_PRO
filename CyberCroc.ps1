@@ -20,6 +20,11 @@ $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Hardware.ps1')
 
 $cfg=Get-CcConfig
+if($cfg -isnot [hashtable]){
+    $normalized=@{}
+    try{foreach($p in $cfg.PSObject.Properties){$normalized[[string]$p.Name.ToUpperInvariant()]=[string]$p.Value}}catch{}
+    $cfg=$normalized
+}
 $Version=(Get-Content (Join-Path $Root 'version.txt') -Raw).Trim()
 
 # GitHub update settings. The application is fully portable: everything is resolved from $PSScriptRoot.
