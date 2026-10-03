@@ -54,7 +54,7 @@ On Error GoTo 0
 ' Run PowerShell directly. CyberCroc itself writes detailed errors to logs/errors.log.
 ' Do not pipe PowerShell output through CMD: PS 5.1 output is Unicode and CMD code pages corrupt Cyrillic.
 cmd = """" & psExe & """" & _
-      " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """" & ps1 & """""
+      " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & """"
 
 LogLine "PowerShell: " & psExe
 LogLine "Script: " & ps1
@@ -70,7 +70,7 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-LogLine "PowerShell/CMD exited with code: " & rc
+LogLine "PowerShell exited with code: " & rc
 
 If rc <> 0 Then
     MsgBox "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & _
