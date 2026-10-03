@@ -18,3 +18,27 @@ DirectX Runtime|Microsoft.DirectX|winget|
 
 # Пример программы по прямой ссылке (раскомментируйте и подставьте свою):
 #MyTool|https://example.com/MyTool-setup.exe|url|C:\Program Files\MyTool\MyTool.exe|/S
+Google Drive|Google.GoogleDrive|cloud|C:\Program Files\Google\Drive File Stream\launch.bat|
+7-Zip|7zip.7zip|archive||
+WinRAR|RARLab.WinRAR|archive||
+VLC Media Player|VideoLAN.VLC|media||
+OBS Studio|OBSProject.OBSStudio|media||
+Notepad++|Notepad++.Notepad++|tools||
+Git|Git.Git|developer||
+Python 3|Python.Python.3.12|developer||
+Java 8|Oracle.JavaRuntimeEnvironment|runtime||
+Java 17|Oracle.JDK.17|runtime||
+Microsoft Visual Studio Code|Microsoft.VisualStudioCode|developer||
+PowerToys|Microsoft.PowerToys|tools||
+Everything|voidtools.Everything|tools||
+AnyDesk|AnyDeskSoftwareGmbH.AnyDesk|remote||
+TeamViewer|TeamViewer.TeamViewer|remote||
+Telegram|Telegram.TelegramDesktop|communication||
+qBittorrent|qBittorrent.qBittorrent|tools||
+ShareX|ShareX.ShareX|tools||
+GIMP|GIMP.GIMP|graphics||
+Paint.NET|dotPDNLLC.paint.net|graphics||
+Blender|BlenderFoundation.Blender|graphics||
+K-Lite Codec Pack|CodecGuide.K-LiteCodecPack.Full|media||
+CrystalDiskInfo|CrystalDewWorld.CrystalDiskInfo|diagnostics||
+HWInfo|REALiX.HWiNFO|diagnostics||
