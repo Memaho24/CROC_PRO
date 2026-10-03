@@ -98,6 +98,7 @@ function Invoke-CcRobocopy([string]$From,[string]$To){
 function Invoke-CcGithubApply([string]$Root,[string]$Repository,[string]$Ref){
     $stage=$null
     $backup=$null
+    $zip=$null
     try{
         $info=Get-CcGithubUpdateInfo $Root $Repository $Ref
         if(-not $info.Available){
