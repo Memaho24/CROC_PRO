@@ -26,3 +26,6 @@ desktop.ini
 # Backup-файлы наших скриптов
 *.cybercroc.bak
 *.bak
+
+# Account database contains DPAPI-protected credentials
+accounts.json
