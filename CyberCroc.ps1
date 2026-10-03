@@ -230,10 +230,10 @@ $wl=New-Label '🐊  ПК $env:COMPUTERNAME готов к работе' 18 'Bold
 $wh=New-Label 'Зелёный статус = всё нормально. Если что-то красное — нажмите «Проверить ПК».' 10;$wh.ForeColor=$C.Muted;$wh.Location=New-Object Drawing.Point(20,50);$welcome.Controls.Add($wh)
 $pcInfo=New-Object Windows.Forms.Panel;$pcInfo.Dock='Fill';$pcInfo.Margin=New-Object Windows.Forms.Padding(6);$pcInfo.BackColor=$C.Panel;$homeBody.Controls.Add($pcInfo,0,1)
 $pcTitle=New-Label '🖥  ЭТОТ КОМПЬЮТЕР' 12 'Bold';$pcTitle.Location=New-Object Drawing.Point(16,12);$pcInfo.Controls.Add($pcTitle)
-$pcDetails=New-Label 'Получение данных...' 10;$pcDetails.Location=New-Object Drawing.Point(18,42);$pcDetails.AutoSize=$true;$pcInfo.Controls.Add($pcDetails)
+$pcDetails=New-Label 'Получение данных...' 9;$pcDetails.Location=New-Object Drawing.Point(18,42);$pcDetails.Size=New-Object Drawing.Size(500,100);$pcDetails.AutoSize=$false;$pcInfo.Controls.Add($pcDetails)
 $diskInfo=New-Object Windows.Forms.Panel;$diskInfo.Dock='Fill';$diskInfo.Margin=New-Object Windows.Forms.Padding(6);$diskInfo.BackColor=$C.Panel;$homeBody.Controls.Add($diskInfo,1,1)
 $diskTitle=New-Label '💾  ДИСКИ' 12 'Bold';$diskTitle.Location=New-Object Drawing.Point(16,12);$diskInfo.Controls.Add($diskTitle)
-$diskDetails=New-Label 'Получение данных...' 10;$diskDetails.Location=New-Object Drawing.Point(18,42);$diskDetails.AutoSize=$true;$diskInfo.Controls.Add($diskDetails)
+$diskDetails=New-Label 'Получение данных...' 9;$diskDetails.Location=New-Object Drawing.Point(18,42);$diskDetails.Size=New-Object Drawing.Size(500,100);$diskDetails.AutoSize=$false;$diskInfo.Controls.Add($diskDetails)
 $health=New-Object Windows.Forms.Panel;$health.Dock='Fill';$health.Margin=New-Object Windows.Forms.Padding(6);$health.BackColor=$C.Panel;$homeBody.Controls.Add($health,0,2);$homeBody.SetColumnSpan($health,2)
 $healthTitle=New-Label '🛡  СОСТОЯНИЕ ПК' 12 'Bold';$healthTitle.Location=New-Object Drawing.Point(16,12);$health.Controls.Add($healthTitle)
 $healthText=New-Label 'Нажмите «Проверить ПК», чтобы проверить компьютер.' 10;$healthText.Location=New-Object Drawing.Point(18,45);$healthText.AutoSize=$true;$health.Controls.Add($healthText)
@@ -243,8 +243,8 @@ $homeActions.Controls.Add($homeCheck);$homeActions.Controls.Add($homeCleanup);$h
 function Refresh-Home{
     try{
         $h=Get-CcHardware;$inv=Get-CcInventory;$disks=@(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" -ErrorAction SilentlyContinue)
-        $pcDetails.Text="Производитель: $($inv.Manufacturer)  |  Модель: $($inv.Model) | CPU: $($h.CPU) | GPU: $($h.GPU) | RAM: $($h.RAM) | Windows: $($h.OS) | Температура CPU: $($h.CpuTemp)"
-        $diskDetails.Text=($disks|ForEach-Object{"$($_.DeviceID) — $([math]::Round($_.FreeSpace/1GB,1)) / $([math]::Round($_.Size/1GB,1)) GB свободно/всего"}) -join '   |   '
+        $pcDetails.Text="Производитель: $($inv.Manufacturer)$([Environment]::NewLine)Модель: $($inv.Model)$([Environment]::NewLine)CPU: $($h.CPU)$([Environment]::NewLine)GPU: $($h.GPU)$([Environment]::NewLine)RAM: $($h.RAM)$([Environment]::NewLine)Windows: $($h.OS)$([Environment]::NewLine)Температура CPU: $($h.CpuTemp)"
+        $diskDetails.Text=($disks|ForEach-Object{"$($_.DeviceID) — $([math]::Round($_.FreeSpace/1GB,1)) / $([math]::Round($_.Size/1GB,1)) GB свободно из $([math]::Round($_.Size/1GB,1)) GB"}) -join ([Environment]::NewLine)
         $healthText.Text='✓ Компьютер отвечает. Система готова к работе.';$healthText.ForeColor=$C.Accent
         $footer.Text="🐊 CyberCroc 🐊   •   Разработчик: Эдуард   •   Патч: $Version   •   ПК: $env:COMPUTERNAME   •   CPU: $($h.CPU)"
     }catch{$healthText.Text="✕ Не удалось полностью проверить ПК: $($_.Exception.Message)";$healthText.ForeColor=$C['Danger'];Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception;Show-CcErrorPopup 'Проверка ПК' $_.Exception}
