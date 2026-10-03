@@ -1,6 +1,6 @@
 Option Explicit
 
-Dim shell, fso, root, ps1, logDir, logFile, psExe, cmd, rc
+Dim shell, fso, root, ps1, logDir, logFile, psExe, cmd, rc, proc, stdoutText, stderrText
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -61,7 +61,7 @@ LogLine "Script: " & ps1
 LogLine "Starting PowerShell directly (no CMD redirection)..."
 
 On Error Resume Next
-rc = shell.Run(cmd, 0, True)
+Set proc = shell.Exec(cmd)
 If Err.Number <> 0 Then
     LogLine "ERROR: Failed to start PowerShell: " & Err.Description
     MsgBox "Не удалось запустить CyberCroc." & vbCrLf & vbCrLf & _
@@ -69,6 +69,21 @@ If Err.Number <> 0 Then
     WScript.Quit 3
 End If
 On Error GoTo 0
+
+Do While proc.Status = 0
+    WScript.Sleep 100
+Loop
+
+stdoutText = proc.StdOut.ReadAll
+stderrText = proc.StdErr.ReadAll
+rc = proc.ExitCode
+
+If Len(stdoutText) > 0 Then
+    LogLine "PowerShell stdout:" & vbCrLf & stdoutText
+End If
+If Len(stderrText) > 0 Then
+    LogLine "PowerShell stderr:" & vbCrLf & stderrText
+End If
 
 LogLine "PowerShell exited with code: " & rc
 
