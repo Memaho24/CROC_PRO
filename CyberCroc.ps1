@@ -1,10 +1,15 @@
 ﻿$ErrorActionPreference='Stop'
 trap {
     try {
-        $logDir=Join-Path $PSScriptRoot 'logs'
+        $logDir = Join-Path $PSScriptRoot 'logs'
         New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-        $line='[{0}] [FATAL] [CyberCroc.ps1] {1} :: {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$_.Exception.Message,$_.Exception.ToString()
-        Add-Content -LiteralPath (Join-Path $logDir 'errors.log') -Value $line -Encoding UTF8
+        $inv = $_.InvocationInfo
+        $position = if ($inv) { $inv.PositionMessage } else { '' }
+        $scriptName = if ($inv -and $inv.ScriptName) { $inv.ScriptName } else { 'CyberCroc.ps1' }
+        $lineNumber = if ($inv -and $inv.ScriptLineNumber) { [string]$inv.ScriptLineNumber } else { '?' }
+        $stack = if ($inv -and $inv.ScriptStackTrace) { $inv.ScriptStackTrace } else { $_.ScriptStackTrace }
+        $line = '[{0}] [FATAL] [{1}:{2}] {3} :: {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $scriptName, $lineNumber, $_.Exception.GetType().FullName, $_.Exception.Message
+        Add-Content -LiteralPath (Join-Path $logDir 'errors.log') -Value ($line + "`r`nPosition: " + $position + "`r`nStack: " + $stack) -Encoding UTF8
     } catch {}
     throw
 }
