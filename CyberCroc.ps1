@@ -388,11 +388,11 @@ $logArea=New-Object Windows.Forms.TableLayoutPanel;$logArea.Dock='Fill';$logArea
 [void]$logArea.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$logArea.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,62)));$logs.Controls.Add($logArea)
 $logText=New-Object Windows.Forms.TextBox;$logText.Multiline=$true;$logText.ReadOnly=$true;$logText.ScrollBars='Both';$logText.Dock='Fill';$logText.Font=New-Object Drawing.Font('Consolas',9);$logText.BackColor=$C.Control;$logText.ForeColor=$C.Fg;$logArea.Controls.Add($logText,0,0)
 $logBtn=New-Button 'Обновить журнал' 190 50;$logArea.Controls.Add($logBtn,0,1)
-function Refresh-Logs{try{$p=Join-Path $Root 'logs\CyberCroc.log';$e=Join-Path $Root 'logs\errors.log';$s='';if(Test-Path $p){$s+=Get-Content $p -Raw};if(Test-Path $e){$s+=[Environment]::NewLine+'===== ОШИБКИ ====='+[Environment]::NewLine+(Get-Content $e -Raw)};$logText.Text=$s}catch{}}
-$logBtn.Add_Click({Refresh-Logs});$pages['logs']=$logs
+function Refresh-Logs{try{$p=Join-Path $Root 'logs\CyberCroc.log';$e=Join-Path $Root 'logs\errors.log';$s='';if(Test-Path $p){$s+=Get-Content $p -Raw};if(Test-Path $e){$s+=[Environment]::NewLine+'===== ОШИБКИ ====='+[Environment]::NewLine+(Get-Content $e -Raw)};$logText.Text=$s;$logText.SelectionStart=$logText.TextLength;$logText.ScrollToCaret()}catch{Write-CcError -FunctionName 'Refresh-Logs' -Exception $_.Exception}}
+$logBtn.Add_Click({try{Write-CcLog 'Log viewer refreshed' 'INFO' 'UI';Refresh-Logs}catch{Show-CcErrorPopup 'Журнал' $_.Exception}});$pages['logs']=$logs
 $logs.Controls[0].BringToFront()
 
-# Settings
+\n# Zapret\n$zapret=New-Object Windows.Forms.Panel;$zapret.Dock='Fill';$zapret.BackColor=$C.Bg;$zapret.Controls.Add((New-PageTitle 'ZAPRET' 'Управление установленным Zapret из CyberCroc.'))\n$zb=New-Flow;$zb.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$zapret.Controls.Add($zb)\n$zStatus=New-Object Windows.Forms.TextBox;$zStatus.Multiline=$true;$zStatus.ReadOnly=$true;$zStatus.Width=760;$zStatus.Height=220;$zStatus.BackColor=$C.Panel;$zStatus.ForeColor=$C.Fg;$zb.Controls.Add($zStatus)\n$zInstall=New-Button 'УСТАНОВИТЬ' 170 58;$zOn=New-Button 'ВКЛЮЧИТЬ' 150 58;$zOff=New-Button 'ВЫКЛЮЧИТЬ' 150 58;$zTest=New-Button 'ТЕСТ СТРАТЕГИЙ' 190 58;$zAuto=New-Button 'АВТОЗАПУСК' 170 58;$zRefresh=New-Button 'ОБНОВИТЬ СТАТУС' 190 58;foreach($b in @($zInstall,$zOn,$zOff,$zTest,$zAuto,$zRefresh)){$zb.Controls.Add($b)}\nfunction Invoke-Zapret([string]$Action){try{$scriptPath=Join-Path $Root 'Zapret.ps1';if(-not(Test-Path -LiteralPath $scriptPath)){throw \"Zapret.ps1 не найден: $scriptPath\"};Write-CcLog \"Zapret action: $Action\" 'INFO' 'Zapret';$progressLabel.Text=\"ZAPRET: $Action\";$progress.Visible=$true;$ps=Join-Path $env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\powershell.exe';$p=Start-Process -FilePath $ps -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$scriptPath,'-Action',$Action) -WindowStyle Hidden -Wait -PassThru;if($p.ExitCode -ne 0){throw \"Zapret завершился с кодом $($p.ExitCode). Подробности: logs\\zapret_log.txt\"};Refresh-Zapret;Toast 'ZAPRET' \"Операция $Action завершена.\" 'OK'}catch{Write-CcError -FunctionName \"Zapret.$Action\" -Exception $_.Exception;Show-CcErrorPopup \"ZAPRET: $Action\" $_.Exception}finally{$progress.Visible=$false;$progressLabel.Text='Выполняется операция...'}}\nfunction Refresh-Zapret{try{$log=Join-Path $Root 'logs\\zapret_log.txt';$zStatus.Text=if(Test-Path -LiteralPath $log){Get-Content -LiteralPath $log -Raw -ErrorAction SilentlyContinue}else{'Журнал Zapret ещё не создан.'}}catch{Write-CcError -FunctionName 'Refresh-Zapret' -Exception $_.Exception;Show-CcErrorPopup 'ZAPRET' $_.Exception}}\n$zInstall.Add_Click({Invoke-Zapret 'install'});$zOn.Add_Click({Invoke-Zapret 'on'});$zOff.Add_Click({Invoke-Zapret 'off'});$zTest.Add_Click({Invoke-Zapret 'test'});$zAuto.Add_Click({Invoke-Zapret 'autostart-on'});$zRefresh.Add_Click({Refresh-Zapret})\n$pages['zapret']=$zapret;$zapret.Controls[0].BringToFront();Refresh-Zapret\n# Settings
 $settings=New-Object Windows.Forms.Panel;$settings.Dock='Fill';$settings.BackColor=$C.Bg;$settings.Controls.Add((New-PageTitle 'Настройки' 'Изменяйте только то, что действительно нужно.'))
 $setBody=New-Object Windows.Forms.FlowLayoutPanel;$setBody.Dock='Fill';$setBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$setBody.WrapContents=$true;$setBody.AutoScroll=$true;$setBody.BackColor=$C.Bg;$settings.Controls.Add($setBody)
 $themeBox=New-Object Windows.Forms.Panel;$themeBox.Width=760;$themeBox.Height=120;$themeBox.BackColor=$C.Panel;$setBody.Controls.Add($themeBox)
@@ -420,16 +420,19 @@ function Apply-Theme{
     }catch{Write-CcError -FunctionName 'Apply-Theme' -Exception $_.Exception}
 }
 
-Add-MenuButton 'home' '⌂  ГЛАВНАЯ'
-Add-MenuButton 'games' 'ЗАПУСК  ИГРЫ'
-Add-MenuButton 'accounts' '●  АККАУНТЫ'
-Add-MenuButton 'apps' '▣  ПРОГРАММЫ'
-Add-MenuButton 'backup' '▤  БЭКАП'
-Add-MenuButton 'cleanup' 'ОЧИСТКА  ОЧИСТКА'
-Add-MenuButton 'logs' '≡  ЖУРНАЛ'
-Add-MenuButton 'settings' 'НАСТРОЙКИ  НАСТРОЙКИ'
+Add-MenuButton 'home' 'ГЛАВНАЯ'
+Add-MenuButton 'games' 'ИГРЫ'
+Add-MenuButton 'zapret' 'ZAPRET'
+Add-MenuButton 'accounts' 'АККАУНТЫ'
+Add-MenuButton 'apps' 'ПРОГРАММЫ'
+Add-MenuButton 'backup' 'БЭКАП'
+Add-MenuButton 'cleanup' 'ОЧИСТКА'
+Add-MenuButton 'logs' 'ЖУРНАЛ'
+Add-MenuButton 'settings' 'НАСТРОЙКИ'
 
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
+$logTimer=New-Object Windows.Forms.Timer;$logTimer.Interval=2000;$logTimer.Add_Tick({try{if($pages.ContainsKey('logs') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['logs']){Refresh-Logs}}catch{}});$logTimer.Start()
+Write-CcLog 'CyberCroc GUI initialized' 'OK' 'Startup'
 $syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
 try{Sync-CcAccounts Pull|Out-Null}catch{}
 $script:AppProcess=$null;$script:AppProcessName=''
