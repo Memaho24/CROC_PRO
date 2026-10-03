@@ -267,25 +267,38 @@ $gameFilter=New-Object Windows.Forms.ComboBox;$gameFilter.DropDownStyle='DropDow
 $gameList=New-Object Windows.Forms.ListView;$gameList.Dock='Fill';$gameList.View='Details';$gameList.FullRowSelect=$true;$gameList.MultiSelect=$false;$gameList.BackColor=$C.Control;$gameList.ForeColor=$C.Fg;[void]$gameList.Columns.Add('Игра',260);[void]$gameList.Columns.Add('Лаунчер',120);[void]$gameList.Columns.Add('Цена',100);[void]$gameList.Columns.Add('Установлена',120);$gameGrid.Controls.Add($gameList,0,1)
 $gameInfo=New-Object Windows.Forms.TextBox;$gameInfo.Multiline=$true;$gameInfo.ReadOnly=$true;$gameInfo.Dock='Fill';$gameInfo.BackColor=$C.Panel;$gameInfo.ForeColor=$C.Fg;$gameInfo.Text='Выберите игру.`r`n`r`nМожно установить её через установленный лаунчер. Для Steam используется официальный Steam URI, для Epic/Riot/Battle.net — запуск соответствующего лаунчера.';$gameGrid.Controls.Add($gameInfo,1,1)
 $gameButtons=New-Flow;$gameInstall=New-Button 'УСТАНОВКА  УСТАНОВИТЬ' 180 58;$gameLaunch=New-Button 'ЗАПУСК  ЗАПУСТИТЬ' 170 58;$gameUpdate=New-Button 'ОБНОВЛЕНИЕ  ОБНОВИТЬ' 160 58;$gameLan=New-Button 'LAN  ЛОКАЛЬНАЯ СЕТЬ' 190 58;$gameAdd=New-Button '+ Своя игра' 140 58;$gameButtons.Controls.Add($gameInstall);$gameButtons.Controls.Add($gameLaunch);$gameButtons.Controls.Add($gameUpdate);$gameButtons.Controls.Add($gameLan);$gameButtons.Controls.Add($gameAdd);$gameGrid.Controls.Add($gameButtons,0,2);$gameGrid.SetColumnSpan($gameButtons,2)
-$script:GameCatalog=@(
- [pscustomobject]@{Name='Counter-Strike 2';Launcher='Steam';Price='Бесплатно';AppID='730'},
- [pscustomobject]@{Name='Dota 2';Launcher='Steam';Price='Бесплатно';AppID='570'},
- [pscustomobject]@{Name='PUBG: BATTLEGROUNDS';Launcher='Steam';Price='Бесплатно';AppID='578080'},
- [pscustomobject]@{Name='Apex Legends';Launcher='Steam';Price='Бесплатно';AppID='1172470'},
- [pscustomobject]@{Name='Team Fortress 2';Launcher='Steam';Price='Бесплатно';AppID='440'},
- [pscustomobject]@{Name='Warframe';Launcher='Steam';Price='Бесплатно';AppID='230410'},
- [pscustomobject]@{Name='Fortnite';Launcher='Epic Games';Price='Бесплатно';AppID=''},
- [pscustomobject]@{Name='Rocket League';Launcher='Epic Games';Price='Бесплатно';AppID=''},
- [pscustomobject]@{Name='League of Legends';Launcher='Riot Games';Price='Бесплатно';AppID=''},
- [pscustomobject]@{Name='Valorant';Launcher='Riot Games';Price='Бесплатно';AppID=''},
- [pscustomobject]@{Name='Overwatch 2';Launcher='Battle.net';Price='Бесплатно';AppID=''},
- [pscustomobject]@{Name='Diablo IV';Launcher='Battle.net';Price='Платно';AppID=''}
-)
+$script:GameCatalog=@()
+function Load-GameCatalog{
+    try{
+        $path=Join-Path $Root 'games.txt'
+        if(-not(Test-Path -LiteralPath $path)){throw "games.txt не найден: $path"}
+        foreach($raw in Get-Content -LiteralPath $path -Encoding UTF8){
+            $line=$raw.Trim();if(-not $line -or $line -match '^[#;]'){continue}
+            $c=@($line -split '\|',7);while($c.Count -lt 7){$c+=''}
+            $source=$c[2].Trim().ToLowerInvariant();$launcher=$c[3].Trim()
+            if(-not $launcher){$launcher=switch($source){'steam' {'Steam'} 'epic' {'Epic Games'} 'riot' {'Riot Games'} 'battle.net' {'Battle.net'} 'battle' {'Battle.net'} default {if($source){$source}else{'Other'}}}}
+            $price=if($c[6].Trim()){$c[6].Trim()}else{'Бесплатно'}
+            $script:GameCatalog += [pscustomobject]@{Name=$c[0].Trim();PathCheck=$c[1].Trim();Source=$source;Launcher=$launcher;AppID=$c[4].Trim();Price=$price}
+        }
+        if($script:GameCatalog.Count -eq 0){throw 'games.txt пуст.'}
+        Write-CcLog "Game catalog loaded: $($script:GameCatalog.Count) items" 'OK' 'Load-GameCatalog'
+    }catch{Write-CcError -FunctionName 'Load-GameCatalog' -Exception $_.Exception;throw}
+}
+Load-GameCatalog
 function Refresh-GameCatalog{try{$gameList.Items.Clear();$q=$gameSearch.Text;if($q -eq 'Поиск игры...'){$q=''};$f=[string]$gameFilter.Text;foreach($g in $script:GameCatalog){if($q -and $g.Name -notlike "*$q*"){continue};if($f -ne 'Все' -and $g.Launcher -ne $f){continue};$installed='Нет';if($g.Launcher -eq 'Steam' -and (Get-CcSteamExe)){$installed='Лаунчер найден'};$i=New-Object Windows.Forms.ListViewItem($g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-GameCatalog' -Exception $_.Exception}}
 $gameSearch.Add_GotFocus({if($gameSearch.Text -eq 'Поиск игры...'){$gameSearch.Text='';$gameSearch.ForeColor=$C.Fg}});$gameSearch.Add_TextChanged({Refresh-GameCatalog});$gameFilter.Add_SelectedIndexChanged({Refresh-GameCatalog});$gameLan.Add_Click({try{Write-CcLog 'LAN game scan requested' 'INFO' 'UI';Scan-LanGames}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}});$gameAdd.Add_Click({try{Show-CustomGameDialog}catch{Show-CcErrorPopup 'Своя игра' $_.Exception}})
 $gameInstall.Add_Click({if(-not $gameList.SelectedItems.Count){Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.');return};$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://install/$($g.AppID)"}elseif($g.Launcher -eq 'Epic Games'){Start-Process 'com.epicgames.launcher://apps'}elseif($g.Launcher -eq 'Riot Games'){$exe=Get-CcLauncherExe 'RiotClientServices.exe';if($exe){Start-Process $exe}else{throw 'Riot Client не найден.'}}else{Start-Process 'https://www.blizzard.com/'};Toast 'Игры' "Открыт лаунчер: $($g.Launcher)" 'OK'}catch{Show-CcErrorPopup 'Установка игры' $_.Exception}})
 $gameLaunch.Add_Click({if($gameList.SelectedItems.Count){$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://rungameid/$($g.AppID)"}else{throw "Запуск $($g.Name) требует лаунчер $($g.Launcher)."}}catch{Show-CcErrorPopup 'Запуск игры' $_.Exception}}else{Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.')}})
 $gameUpdate.Add_Click({Toast 'Игры' 'Проверка обновлений игры передана лаунчеру.' 'INFO'})
+function Save-GameCatalogToFile{param([object[]]$Catalog);try{$path=Join-Path $Root 'games.txt';$lines=@('# CyberCroc game inventory','# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion|Price');foreach($g in $Catalog){$lines+=('{0}|{1}|{2}|{3}|{4}||{5}' -f $g.Name,$g.PathCheck,([string]$g.Launcher).ToLowerInvariant(),$g.Launcher,$g.AppID,$g.Price)};Set-Content -LiteralPath $path -Value $lines -Encoding UTF8;Write-CcLog "Game catalog saved: $($Catalog.Count) items" 'OK' 'Save-GameCatalogToFile';return $true}catch{Write-CcError -FunctionName 'Save-GameCatalogToFile' -Exception $_.Exception;return $false}}
+function Show-CustomGameDialog{
+try{
+$d=New-Object Windows.Forms.Form;$d.Text='Добавить свою игру';$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(560,360);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
+$l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6;[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,150)));[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
+$fields=@{};$labels=@('Название','Лаунчер','Цена','Путь к EXE','AppID');for($i=0;$i -lt 5;$i++){[void]$l.Controls.Add((New-Label $labels[$i]),0,$i);$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t;$fields[$labels[$i]]=$t;[void]$l.Controls.Add($t,1,$i)};$fields['Лаунчер'].Text='Steam';$fields['Цена'].Text='Бесплатно'
+$buttons=New-Flow;$ok=New-Button 'Сохранить' 150 52;$cancel=New-Button 'Отмена' 130 52;$buttons.Controls.Add($ok);$buttons.Controls.Add($cancel);$l.Controls.Add($buttons,1,5);$cancel.Add_Click({$d.Close()})
+$ok.Add_Click({try{if([string]::IsNullOrWhiteSpace($fields['Название'].Text)){throw 'Введите название игры.'};$g=[pscustomobject]@{Name=$fields['Название'].Text.Trim();PathCheck=$fields['Путь к EXE'].Text.Trim();Launcher=$fields['Лаунчер'].Text.Trim();Price=$fields['Цена'].Text.Trim();AppID=$fields['AppID'].Text.Trim()};$script:GameCatalog=@($script:GameCatalog|Where-Object{$_.Name -ne $g.Name})+$g;if(-not(Save-GameCatalogToFile $script:GameCatalog)){throw 'Не удалось сохранить games.txt'};Refresh-GameCatalog;$d.Close();Toast 'Игры' 'Игра добавлена в каталог.' 'OK'}catch{Write-CcError -FunctionName 'CustomGameDialog' -Exception $_.Exception;Show-CcErrorPopup 'Своя игра' $_.Exception}});[void]$d.ShowDialog($form)
+}catch{Write-CcError -FunctionName 'Show-CustomGameDialog' -Exception $_.Exception;throw}}
 function Scan-LanGames{try{$progress.Visible=$true;$gameInfo.Text='Сканирую компьютеры локальной сети...';$peers=@(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue|Where-Object{$_.State -in @('Reachable','Stale','Delay','Probe') -and $_.IPAddress -notlike '224.*' -and $_.IPAddress -notlike '239.*'}|Select-Object -ExpandProperty IPAddress -Unique);$rows=@();$selected=if($gameList.SelectedItems.Count){$gameList.SelectedItems[0].Tag}else{$null};foreach($ip in $peers){$name=$ip;try{$name=[System.Net.Dns]::GetHostEntry($ip).HostName}catch{};$steam='нет';$base="\\$ip\C$\Program Files (x86)\Steam";if(Test-Path -LiteralPath (Join-Path $base 'steam.exe')){$steam='есть'};$rows+="${name}  [$ip]  — Steam: $steam"};if($rows.Count){$gameInfo.Text="ПК в локальной сети:`r`n`r`n"+($rows -join "`r`n")}else{$gameInfo.Text='Активные ПК в локальной сети не найдены или недоступны.'}}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}finally{$progress.Visible=$false}}
 $pages['games']=$games;$games.Controls[0].BringToFront();Refresh-GameCatalog
 # Accounts
