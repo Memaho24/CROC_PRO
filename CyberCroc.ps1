@@ -327,18 +327,37 @@ $pages['accounts']=$accounts
 $accounts.Controls[0].BringToFront()
 
 # Applications
-$app=New-Object Windows.Forms.Panel;$app.Dock='Fill';$app.BackColor=$C.Bg;$app.Controls.Add((New-PageTitle 'Программы' 'Проверка и установка нужных программ для клуба.'))
-$appBody=New-Flow;$appBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$app.Controls.Add($appBody)
-$appInfo=New-Object Windows.Forms.Panel;$appInfo.Width=720;$appInfo.Height=125;$appInfo.BackColor=$C.Panel;$appBody.Controls.Add($appInfo)
-$ai=New-Label 'ПРОГРАММЫ ПК' 18 'Bold';$ai.Location=New-Object Drawing.Point(20,18);$appInfo.Controls.Add($ai)
-$aih=New-Label 'Проверить наличие программ или установить недостающие.' 10;$aih.ForeColor=$C.Muted;$aih.Location=New-Object Drawing.Point(22,55);$appInfo.Controls.Add($aih)
-$appCheck=New-Button 'Проверить программы' 240 62;$appInstall=New-Button 'Установить / обновить' 240 62;$appBody.Controls.Add($appCheck);$appBody.Controls.Add($appInstall)
-function Run-AppTool([bool]$Install){
-    try{$args=@('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',(Join-Path $Tools 'Apps.ps1'));if($Install){$args+=@('-Install','-Update')};$p=Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -Wait -PassThru;Toast 'Программы' $(if($p.ExitCode -eq 0){'Готово.'}else{"Операция завершилась с кодом $($p.ExitCode)."}) $(if($p.ExitCode -eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-AppTool' -Exception $_.Exception}
-}
-$appCheck.Add_Click({$progress.Visible=$true;try{Run-AppTool $false}finally{$progress.Visible=$false}});$appInstall.Add_Click({$progress.Visible=$true;try{Run-AppTool $true}finally{$progress.Visible=$false}});$pages['apps']=$app
-$app.Controls[0].BringToFront()
-
+$app=New-Object Windows.Forms.Panel;$app.Dock='Fill';$app.BackColor=$C.Bg;$app.Controls.Add((New-PageTitle 'Программы' 'Выберите программу и нажмите «Установить». Установка идёт прямо в этой программе.'))
+$appGrid=New-Object Windows.Forms.TableLayoutPanel;$appGrid.Dock='Fill';$appGrid.Padding=New-Object Windows.Forms.Padding(20,96,20,15);$appGrid.ColumnCount=2;$appGrid.RowCount=3;$appGrid.BackColor=$C.Bg;$app.Controls.Add($appGrid)
+[void]$appGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,62)));[void]$appGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,38)))
+[void]$appGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,52)));[void]$appGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$appGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,76)))
+$appSearch=New-Object Windows.Forms.TextBox;$appSearch.Dock='Fill';$appSearch.Text='Поиск: браузер, Office, Steam...';$appSearch.Font=New-Object Drawing.Font('Segoe UI',12);Apply-ControlTheme $appSearch;$appGrid.Controls.Add($appSearch,0,0)
+$appHint=New-Label '💡 Всё устанавливается через winget. Никаких чёрных окон.' 10;$appHint.ForeColor=$C.Muted;$appHint.Dock='Fill';$appHint.TextAlign='MiddleLeft';$appGrid.Controls.Add($appHint,1,0)
+$appList=New-Object Windows.Forms.ListView;$appList.View='Details';$appList.FullRowSelect=$true;$appList.MultiSelect=$false;$appList.Dock='Fill';$appList.BackColor=$C.Control;$appList.ForeColor=$C.Fg;[void]$appList.Columns.Add('Программа',260);[void]$appList.Columns.Add('Тип',110);[void]$appList.Columns.Add('Цена',90);$appGrid.Controls.Add($appList,0,1)
+$appInfo=New-Object Windows.Forms.TextBox;$appInfo.Multiline=$true;$appInfo.ReadOnly=$true;$appInfo.Dock='Fill';$appInfo.ScrollBars='Vertical';$appInfo.BackColor=$C.Panel;$appInfo.ForeColor=$C.Fg;$appInfo.Text='Выберите программу слева.`r`n`r`nСписок подготовлен для клуба: браузеры, Office, игровые лаунчеры, Discord и системные компоненты.';$appGrid.Controls.Add($appInfo,1,1)
+$appButtons=New-Flow;$appInstallOne=New-Button '⬇  УСТАНОВИТЬ' 200 58;$appUpdateOne=New-Button '↻  ОБНОВИТЬ' 180 58;$appRefresh=New-Button '⟳  ОБНОВИТЬ СПИСОК' 210 58;$appButtons.Controls.Add($appInstallOne);$appButtons.Controls.Add($appUpdateOne);$appButtons.Controls.Add($appRefresh);$appGrid.Controls.Add($appButtons,0,2);$appGrid.SetColumnSpan($appButtons,2)
+$script:AppCatalog=@(
+    [pscustomobject]@{Name='Google Chrome';Id='Google.Chrome';Type='Браузер';Price='Бесплатно'},
+    [pscustomobject]@{Name='Mozilla Firefox';Id='Mozilla.Firefox';Type='Браузер';Price='Бесплатно'},
+    [pscustomobject]@{Name='Brave Browser';Id='Brave.Brave';Type='Браузер';Price='Бесплатно'},
+    [pscustomobject]@{Name='Opera';Id='Opera.Opera';Type='Браузер';Price='Бесплатно'},
+    [pscustomobject]@{Name='Microsoft Edge';Id='Microsoft.Edge';Type='Браузер';Price='Бесплатно'},
+    [pscustomobject]@{Name='Microsoft 365 / Office';Id='Microsoft.Office';Type='Офис';Price='Платно'},
+    [pscustomobject]@{Name='LibreOffice';Id='TheDocumentFoundation.LibreOffice';Type='Офис';Price='Бесплатно'},
+    [pscustomobject]@{Name='Steam';Id='Valve.Steam';Type='Игры';Price='Бесплатно'},
+    [pscustomobject]@{Name='Epic Games Launcher';Id='EpicGames.EpicGamesLauncher';Type='Игры';Price='Бесплатно'},
+    [pscustomobject]@{Name='Battle.net';Id='Blizzard.BattleNet';Type='Игры';Price='Бесплатно'},
+    [pscustomobject]@{Name='Discord';Id='Discord.Discord';Type='Связь';Price='Бесплатно'},
+    [pscustomobject]@{Name='Visual C++ 2015-2022 x64';Id='Microsoft.VCRedist.2015+.x64';Type='Система';Price='Бесплатно'},
+    [pscustomobject]@{Name='DirectX Runtime';Id='Microsoft.DirectX';Type='Система';Price='Бесплатно'}
+)
+function Refresh-AppCatalog{try{$appList.Items.Clear();$q=$appSearch.Text;if($q -like 'Поиск:*'){$q=''};foreach($x in $script:AppCatalog){if($q -and $x.Name -notlike "*$q*" -and $x.Type -notlike "*$q*"){continue};$i=New-Object Windows.Forms.ListViewItem($x.Name);[void]$i.SubItems.Add($x.Type);[void]$i.SubItems.Add($x.Price);$i.Tag=$x;[void]$appList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-AppCatalog' -Exception $_.Exception}}
+function Start-WingetApp([object]$Item,[string]$Mode){try{$winget=(Get-Command winget.exe -ErrorAction Stop).Source;$op=if($Mode -eq 'update'){'upgrade'}else{'install'};$args="`$op --id $($Item.Id) --exact --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity";$progress.Visible=$true;$appInfo.Text="Операция: $op`r`n`r`n$($Item.Name)`r`n`r`nОжидайте завершения...";$p=Start-Process -FilePath $winget -ArgumentList $args -WindowStyle Hidden -PassThru;$script:AppProcess=$p;$script:AppProcessName=$Item.Name;$script:AppProcessMode=$Mode}catch{Show-CcErrorPopup 'Установка программы' $_.Exception}}
+$appInstallOne.Add_Click({if($appList.SelectedItems.Count){Start-WingetApp $appList.SelectedItems[0].Tag 'install'}else{Show-CcErrorPopup 'Программы' ([Exception]'Сначала выберите программу.')}})
+$appUpdateOne.Add_Click({if($appList.SelectedItems.Count){Start-WingetApp $appList.SelectedItems[0].Tag 'update'}else{Show-CcErrorPopup 'Программы' ([Exception]'Сначала выберите программу.')}})
+$appRefresh.Add_Click({Refresh-AppCatalog})
+$appSearch.Add_TextChanged({Refresh-AppCatalog})
+$pages['apps']=$app;$app.Controls[0].BringToFront();Refresh-AppCatalog
 # Backup and cleanup
 $backup=New-Object Windows.Forms.Panel;$backup.Dock='Fill';$backup.BackColor=$C.Bg;$backup.Controls.Add((New-PageTitle 'Резервная копия' 'Сохраните важные данные перед обслуживанием ПК.'))
 $bb=New-Flow;$bb.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$backup.Controls.Add($bb);$backupInfo=New-Card 'БЭКАП' 'ГОТОВ' 'создаёт резервную копию';$bb.Controls.Add($backupInfo);$backupBtn=New-Button 'СДЕЛАТЬ БЭКАП' 250 70;$bb.Controls.Add($backupBtn);$backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$pages['backup']=$backup
