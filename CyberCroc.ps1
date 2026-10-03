@@ -304,7 +304,7 @@ function Test-CcGithubUpdate {
 function Start-CcGithubUpdate {
     try {
         if(-not(Test-Path -LiteralPath $GithubUpdateScript)){throw "Updater.ps1 not found: $GithubUpdateScript"}
-        $args=@('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',$GithubUpdateScript,'-Apply','-Github','-Repo',$GithubRepo,'-Branch',$GithubBranch,'-WaitPid',$PID)
+        $args=@('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',('"{0}"' -f $GithubUpdateScript),'-Apply','-Github','-Repo',$GithubRepo,'-Branch',$GithubBranch,'-WaitPid',$PID)
         Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList $args -WindowStyle Hidden|Out-Null
         Write-CcLog "GitHub update accepted: $Version -> remote main" 'INFO' 'Start-CcGithubUpdate'
         return $true
