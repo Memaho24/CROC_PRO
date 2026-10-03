@@ -42,7 +42,7 @@ $homeBtn.Add_Click({Refresh-Home})
 $games=New-Tab 'Игры'
 $gameSearch=New-Object Windows.Forms.TextBox;$gameSearch.Location=New-Object Drawing.Point(15,15);$gameSearch.Size=New-Object Drawing.Size(350,30);Style-Control $gameSearch;$games.Controls.Add($gameSearch)
 $gameList=New-Object Windows.Forms.ListBox;$gameList.Location=New-Object Drawing.Point(15,55);$gameList.Size=New-Object Drawing.Size(1050,560);Style-Control $gameList;$games.Controls.Add($gameList)
-function Load-Games([string]$q=''){try{$gameList.Items.Clear();$f=Join-Path $Root 'games.txt';if(Test-Path $f){foreach($l in Get-Content $f -Encoding UTF8){$s=$l.Trim();if((!$s) -or $s.StartsWith('#')){continue};$name=($s-split '\|')[0].Trim();if((!$q) -or ($name -like "*$q*"){$gameList.Items.Add($name)|Out-Null}}}}catch{Write-CcError -FunctionName 'Load-Games' -Exception $_.Exception}}
+function Load-Games([string]$q=''){try{$gameList.Items.Clear();$f=Join-Path $Root 'games.txt';if(Test-Path $f){foreach($l in Get-Content $f -Encoding UTF8){$s=$l.Trim();if((!$s) -or $s.StartsWith('#')){continue};$name=($s-split '\|')[0].Trim();if((!$q) -or ($name -like "*$q*")){$gameList.Items.Add($name)|Out-Null}}}}catch{Write-CcError -FunctionName 'Load-Games' -Exception $_.Exception}}
 $gameSearch.Add_TextChanged({Load-Games $gameSearch.Text})
 
 $accounts=New-Tab 'Аккаунты'
