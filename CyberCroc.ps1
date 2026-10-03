@@ -149,13 +149,13 @@ function Set-Theme([string]$Name){
 Set-Theme $ThemeName
 
 $form=New-Object Windows.Forms.Form
-$form.Text="CyberCroc — управление ПК";$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.MinimumSize=New-Object Drawing.Size(1000,650);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10)
+$form.Text="🐊 CyberCroc 🐊 — управление ПК";$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.MinimumSize=New-Object Drawing.Size(1100,700);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10)
 
 function New-Label([string]$Text,[int]$Size=10,[System.Drawing.FontStyle]$Style='Regular'){
     $x=New-Object Windows.Forms.Label;$x.Text=$Text;$x.AutoSize=$true;$x.Font=New-Object Drawing.Font('Segoe UI',$Size,$Style);$x.ForeColor=$C.Fg;return $x
 }
 function New-Button([string]$Text,[int]$Width=190,[int]$Height=48){
-    $x=New-Object Windows.Forms.Button;$x.Text=$Text;$x.Width=$Width;$x.Height=$Height;$x.Margin=New-Object Windows.Forms.Padding(6);$x.FlatStyle='Flat';$x.FlatAppearance.BorderSize=1;$x.FlatAppearance.BorderColor=$C.Fg;$x.BackColor=$C.Control;$x.ForeColor=$C.Fg;$x.Font=New-Object Drawing.Font('Segoe UI',10,[Drawing.FontStyle]::Bold);$x.Cursor=[Windows.Forms.Cursors]::Hand;return $x
+    $x=New-Object Windows.Forms.Button;$x.Text=$Text;$x.Width=$Width;$x.Height=$Height;$x.Margin=New-Object Windows.Forms.Padding(6);$x.FlatStyle='Flat';$x.FlatAppearance.BorderSize=1;$x.FlatAppearance.BorderColor=$C.Fg;if($x -is [Windows.Forms.Label]){$x.BackColor=[Drawing.Color]::Transparent;$x.ForeColor=$C.Fg}else{$x.BackColor=$C.Control;$x.ForeColor=$C.Fg};$x.Font=New-Object Drawing.Font('Segoe UI',10,[Drawing.FontStyle]::Bold);$x.Cursor=[Windows.Forms.Cursors]::Hand;return $x
 }
 function New-PageTitle([string]$Title,[string]$Hint){
     $p=New-Object Windows.Forms.Panel;$p.Dock='Top';$p.Height=82;$p.BackColor=$C.Panel
@@ -172,6 +172,7 @@ function New-Flow([string]$Direction='LeftToRight'){
     $p=New-Object Windows.Forms.FlowLayoutPanel;$p.Dock='Fill';$p.AutoScroll=$true;$p.WrapContents=$true;$p.Padding=New-Object Windows.Forms.Padding(18);$p.FlowDirection=$Direction;$p.BackColor=$C.Bg;return $p
 }
 function Toast($Title,$Message,$Level='INFO'){Show-CcToast $Title $Message $Level}
+function Show-CcErrorPopup([string]$Title,[System.Exception]$Exception){try{Write-CcError -FunctionName $Title -Exception $Exception;[void][Windows.Forms.MessageBox]::Show("Операция не выполнена.`n`n$($Exception.Message)`n`nПодробности записаны в logs\\errors.log.",'CyberCroc — ошибка',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Error)}catch{}}
 function Apply-ControlTheme([Windows.Forms.Control]$x){
     try{
         $x.BackColor=$C.Control;$x.ForeColor=$C.Fg
@@ -186,9 +187,9 @@ $shell=New-Object Windows.Forms.TableLayoutPanel;$shell.Dock='Fill';$shell.Colum
 [void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,32)));$form.Controls.Add($shell)
 
 $nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12);$shell.Controls.Add($nav,0,0)
-$brand=New-Label 'CYBER CROC' 22 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,18);$nav.Controls.Add($brand)
-$brand2=New-Label 'ПАНЕЛЬ УПРАВЛЕНИЯ' 8 'Bold';$brand2.ForeColor=$C.Muted;$brand2.Location=New-Object Drawing.Point(20,52);$nav.Controls.Add($brand2)
-$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Location=New-Object Drawing.Point(12,90);$menu.Size=New-Object Drawing.Size(196,460);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$true;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
+$brand=New-Label '🐊 CYBER CROC 🐊' 20 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,16);$nav.Controls.Add($brand)
+$brand2=New-Label "Разработчик: Эдуард  |  Патч: $Version" 8 'Bold';$brand2.ForeColor=$C.Muted;$brand2.Location=New-Object Drawing.Point(20,49);$brand2.AutoSize=$true;$nav.Controls.Add($brand2)
+$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Location=New-Object Drawing.Point(12,92);$menu.Size=New-Object Drawing.Size(196,520);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$true;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
 
 $content=New-Object Windows.Forms.Panel;$content.Dock='Fill';$content.BackColor=$C.Bg;$shell.Controls.Add($content,1,0)
 $footer=New-Label "ПК: $env:COMPUTERNAME   •   CyberCroc $Version" 9;$footer.ForeColor=$C.Muted;$footer.TextAlign='MiddleLeft';$footer.Dock='Fill';$footer.Padding=New-Object Windows.Forms.Padding(14,0,0,0);$shell.Controls.Add($footer,0,1);$shell.SetColumnSpan($footer,2)
@@ -209,42 +210,43 @@ function Show-Page([string]$Key){
 }
 
 # Home
-$homePage=New-Object Windows.Forms.Panel;$homePage.Dock='Fill';$homePage.BackColor=$C.Bg;$homePage.Controls.Add((New-PageTitle 'Главная' 'Здесь видно, всё ли в порядке с этим компьютером.'))
-$homeBody=New-Object Windows.Forms.FlowLayoutPanel;$homeBody.Dock='Fill';$homeBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$homeBody.WrapContents=$true;$homeBody.AutoScroll=$true;$homeBody.BackColor=$C.Bg;$homePage.Controls.Add($homeBody)
-$welcome=New-Object Windows.Forms.Panel;$welcome.Width=740;$welcome.Height=105;$welcome.Margin=New-Object Windows.Forms.Padding(8);$welcome.BackColor=$C.Panel
-$wl=New-Label "ПК $env:COMPUTERNAME готов к работе" 20 'Bold';$wl.Location=New-Object Drawing.Point(20,15);$welcome.Controls.Add($wl)
-$wh=New-Label 'Если всё зелёное — ничего делать не нужно.' 10;$wh.ForeColor=$C.Muted;$wh.Location=New-Object Drawing.Point(22,57);$welcome.Controls.Add($wh);$homeBody.Controls.Add($welcome)
-$cardPC=New-Card 'СОСТОЯНИЕ' 'Проверка...' 'нажмите «Проверить ПК»';$cardDisk=New-Card 'ДИСК C:' '—' 'свободное место';$cardNet=New-Card 'СЕТЬ' '—' 'обновления клуба';$homeBody.Controls.Add($cardPC);$homeBody.Controls.Add($cardDisk);$homeBody.Controls.Add($cardNet)
-$homeActions=New-Object Windows.Forms.FlowLayoutPanel;$homeActions.Width=740;$homeActions.Height=190;$homeActions.Margin=New-Object Windows.Forms.Padding(8);$homeActions.WrapContents=$true;$homeActions.BackColor=$C.Bg;$homeBody.Controls.Add($homeActions)
-$homeCheck=New-Button 'Проверить ПК' 220 62;$homeCleanup=New-Button 'Очистить ПК' 220 62;$homeBackup=New-Button 'Сделать бэкап' 220 62;$homeActions.Controls.Add($homeCheck);$homeActions.Controls.Add($homeCleanup);$homeActions.Controls.Add($homeBackup)
-
+$homePage=New-Object Windows.Forms.Panel;$homePage.Dock='Fill';$homePage.BackColor=$C.Bg
+$homePage.Controls.Add((New-PageTitle 'Главная' 'Здесь собрана вся важная информация о компьютере.'))
+$homeBody=New-Object Windows.Forms.TableLayoutPanel;$homeBody.Dock='Fill';$homeBody.Padding=New-Object Windows.Forms.Padding(22,96,22,18);$homeBody.ColumnCount=2;$homeBody.RowCount=4;$homeBody.BackColor=$C.Bg;$homePage.Controls.Add($homeBody)
+[void]$homeBody.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,50)))
+[void]$homeBody.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,50)))
+[void]$homeBody.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,92)))
+[void]$homeBody.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,150)))
+[void]$homeBody.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)))
+[void]$homeBody.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,86)))
+$welcome=New-Object Windows.Forms.Panel;$welcome.Dock='Fill';$welcome.Margin=New-Object Windows.Forms.Padding(6);$welcome.BackColor=$C.Panel;$homeBody.Controls.Add($welcome,0,0);$homeBody.SetColumnSpan($welcome,2)
+$wl=New-Label '🐊  ПК $env:COMPUTERNAME готов к работе' 18 'Bold';$wl.Location=New-Object Drawing.Point(18,12);$welcome.Controls.Add($wl)
+$wh=New-Label 'Зелёный статус = всё нормально. Если что-то красное — нажмите «Проверить ПК».' 10;$wh.ForeColor=$C.Muted;$wh.Location=New-Object Drawing.Point(20,50);$welcome.Controls.Add($wh)
+$pcInfo=New-Object Windows.Forms.Panel;$pcInfo.Dock='Fill';$pcInfo.Margin=New-Object Windows.Forms.Padding(6);$pcInfo.BackColor=$C.Panel;$homeBody.Controls.Add($pcInfo,0,1)
+$pcTitle=New-Label '🖥  ЭТОТ КОМПЬЮТЕР' 12 'Bold';$pcTitle.Location=New-Object Drawing.Point(16,12);$pcInfo.Controls.Add($pcTitle)
+$pcDetails=New-Label 'Получение данных...' 10;$pcDetails.Location=New-Object Drawing.Point(18,42);$pcDetails.AutoSize=$true;$pcInfo.Controls.Add($pcDetails)
+$diskInfo=New-Object Windows.Forms.Panel;$diskInfo.Dock='Fill';$diskInfo.Margin=New-Object Windows.Forms.Padding(6);$diskInfo.BackColor=$C.Panel;$homeBody.Controls.Add($diskInfo,1,1)
+$diskTitle=New-Label '💾  ДИСКИ' 12 'Bold';$diskTitle.Location=New-Object Drawing.Point(16,12);$diskInfo.Controls.Add($diskTitle)
+$diskDetails=New-Label 'Получение данных...' 10;$diskDetails.Location=New-Object Drawing.Point(18,42);$diskDetails.AutoSize=$true;$diskInfo.Controls.Add($diskDetails)
+$health=New-Object Windows.Forms.Panel;$health.Dock='Fill';$health.Margin=New-Object Windows.Forms.Padding(6);$health.BackColor=$C.Panel;$homeBody.Controls.Add($health,0,2);$homeBody.SetColumnSpan($health,2)
+$healthTitle=New-Label '🛡  СОСТОЯНИЕ ПК' 12 'Bold';$healthTitle.Location=New-Object Drawing.Point(16,12);$health.Controls.Add($healthTitle)
+$healthText=New-Label 'Нажмите «Проверить ПК», чтобы проверить компьютер.' 10;$healthText.Location=New-Object Drawing.Point(18,45);$healthText.AutoSize=$true;$health.Controls.Add($healthText)
+$homeActions=New-Object Windows.Forms.FlowLayoutPanel;$homeActions.Dock='Fill';$homeActions.Margin=New-Object Windows.Forms.Padding(6);$homeActions.BackColor=$C.Bg;$homeBody.Controls.Add($homeActions,0,3);$homeBody.SetColumnSpan($homeActions,2)
+$homeCheck=New-Button '🔍  ПРОВЕРИТЬ ПК' 220 62;$homeCleanup=New-Button '🧹  ОЧИСТИТЬ ПК' 220 62;$homeBackup=New-Button '💾  БЭКАП' 220 62
+$homeActions.Controls.Add($homeCheck);$homeActions.Controls.Add($homeCleanup);$homeActions.Controls.Add($homeBackup)
 function Refresh-Home{
     try{
-        $h=Get-CcHardware
-        $diskC=Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
-        $free=if($diskC){[math]::Round($diskC.FreeSpace/1GB,1)}else{0}
-        $size=if($diskC){[math]::Round($diskC.Size/1GB,1)}else{0}
-        $share=[string]$cfg['UPDATE_SHARE']
-        $online=if($share -and (Test-Path -LiteralPath $share)){$true}else{$false}
-        $cardPC.Controls[1].Text='ГОТОВ'
-        $cardPC.Controls[1].ForeColor=$C.Accent
-        $cardDisk.Controls[1].Text="$free GB"
-        $cardDisk.Controls[2].Text="из $size GB"
-        $cardNet.Controls[1].Text=if($online){'ONLINE'}else{'OFFLINE'}
-        $cardNet.Controls[1].ForeColor=if($online){$C.Accent}else{$C['Warning']}
-        $footer.Text="ПК: $env:COMPUTERNAME   •   CyberCroc $Version   •   CPU: $($h.CPU)"
-    }catch{
-        $cardPC.Controls[1].Text='ОШИБКА'
-        $cardPC.Controls[1].ForeColor=$C['Danger']
-        Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception
-    }
+        $h=Get-CcHardware;$inv=Get-CcInventory;$disks=@(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" -ErrorAction SilentlyContinue)
+        $pcDetails.Text="Производитель: $($inv.Manufacturer)  |  Модель: $($inv.Model) | CPU: $($h.CPU) | GPU: $($h.GPU) | RAM: $($h.RAM) | Windows: $($h.OS) | Температура CPU: $($h.CpuTemp)"
+        $diskDetails.Text=($disks|ForEach-Object{"$($_.DeviceID) — $([math]::Round($_.FreeSpace/1GB,1)) / $([math]::Round($_.Size/1GB,1)) GB свободно/всего"}) -join '   |   '
+        $healthText.Text='✓ Компьютер отвечает. Система готова к работе.';$healthText.ForeColor=$C.Accent
+        $footer.Text="🐊 CyberCroc 🐊   •   Разработчик: Эдуард   •   Патч: $Version   •   ПК: $env:COMPUTERNAME   •   CPU: $($h.CPU)"
+    }catch{$healthText.Text="✕ Не удалось полностью проверить ПК: $($_.Exception.Message)";$healthText.ForeColor=$C['Danger'];Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception;Show-CcErrorPopup 'Проверка ПК' $_.Exception}
 }
-$homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Компьютер проверен.' 'OK'}finally{$progress.Visible=$false}})
-$homeCleanup.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
-$homeBackup.Add_Click({Run-HiddenCmd 'Backup.cmd'})
-$pages['home']=$homePage
-$homePage.Controls[0].BringToFront()
-
+$homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Проверка завершена.' 'OK'}catch{Show-CcErrorPopup 'Проверка ПК' $_.Exception}finally{$progress.Visible=$false}})
+$homeCleanup.Add_Click({try{Run-HiddenCmd 'Cleanup.cmd'}catch{Show-CcErrorPopup 'Очистка' $_.Exception}})
+$homeBackup.Add_Click({try{Run-HiddenCmd 'Backup.cmd'}catch{Show-CcErrorPopup 'Бэкап' $_.Exception}})
+$pages['home']=$homePage;$homePage.Controls[0].BringToFront()
 # Games
 $games=New-Object Windows.Forms.Panel;$games.Dock='Fill';$games.BackColor=$C.Bg;$games.Controls.Add((New-PageTitle 'Игры' 'Выберите игру и нажмите нужную большую кнопку.'))
 $gameArea=New-Object Windows.Forms.TableLayoutPanel;$gameArea.Dock='Fill';$gameArea.Padding=New-Object Windows.Forms.Padding(20,100,20,15);$gameArea.RowCount=3
