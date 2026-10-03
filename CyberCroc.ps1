@@ -71,6 +71,9 @@ $aDel.Add_Click({if($aList.SelectedItems.Count){if([Windows.Forms.MessageBox]::S
 $aLogin.Add_Click({if($aList.SelectedItems.Count){if(Start-CcAccountSession $aList.SelectedItems[0].Tag){Refresh-Accounts;Toast 'Сессия' 'Аккаунт запущен' 'OK'}else{Toast 'Ошибка' 'Не удалось запустить аккаунт' 'ERROR'}}})
 $aCheck.Add_Click({try{$progress.Visible=$true;$progress.Style='Marquee';foreach($a in @(Get-CcAccounts)){Test-CcAccount $a $cfg|Out-Null};Save-CcAccounts @(Get-CcAccounts)|Out-Null;Refresh-Accounts;$progress.Visible=$false;Toast 'Аккаунты' 'Проверка завершена' 'OK'}catch{$progress.Visible=$false;Toast 'Ошибка' $_.Exception.Message 'ERROR'}})
 $aSearch.Add_TextChanged({Refresh-Accounts $aSearch.Text})
+$aExport.Add_Click({try{$d=New-Object Windows.Forms.SaveFileDialog;$d.Filter='CyberCroc accounts (*.json)|*.json';if($d.ShowDialog() -eq 'OK'){@(Get-CcAccounts)|ConvertTo-Json -Depth 12|Set-Content $d.FileName -Encoding UTF8;Toast 'Экспорт' 'JSON сохранён. DPAPI-протектированные пароли привязаны к этому Windows-пользователю.' 'OK'}}catch{Toast 'Экспорт' $_.Exception.Message 'ERROR'}})
+$aImport.Add_Click({try{$d=New-Object Windows.Forms.OpenFileDialog;$d.Filter='CyberCroc accounts (*.json)|*.json';if($d.ShowDialog() -eq 'OK'){$x=@(Get-Content $d.FileName -Raw -Encoding UTF8|ConvertFrom-Json);if($x.Count -gt 0){Save-CcAccounts $x|Out-Null;Refresh-Accounts;Toast 'Импорт' 'JSON импортирован' 'OK'}}}catch{Toast 'Импорт' $_.Exception.Message 'ERROR'}})
+
 
 $app=New-Tab 'Приложения'
 $appSearch=New-Object Windows.Forms.TextBox;$appSearch.Location=New-Object Drawing.Point(15,15);$appSearch.Size=New-Object Drawing.Size(350,30);Style-Control $appSearch;$app.Controls.Add($appSearch)
