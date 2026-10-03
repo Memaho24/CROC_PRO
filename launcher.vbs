@@ -51,20 +51,17 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-' Run through cmd.exe only for diagnostic redirection.
-' The console itself stays hidden.
-cmd = """" & shell.ExpandEnvironmentStrings("%ComSpec%") & """" & _
-      " /d /s /c """"" & psExe & _
-      """ -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & _
-      """ >> """ & logFile & """ 2>&1"""
+' Run PowerShell directly. CyberCroc itself writes detailed errors to logs/errors.log.
+' Do not pipe PowerShell output through CMD: PS 5.1 output is Unicode and CMD code pages corrupt Cyrillic.
+cmd = """" & psExe & """" & _
+      " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """" & ps1 & """""
 
 LogLine "PowerShell: " & psExe
 LogLine "Script: " & ps1
-LogLine "Starting PowerShell with output capture..."
+LogLine "Starting PowerShell directly (no CMD redirection)..."
 
 On Error Resume Next
 rc = shell.Run(cmd, 0, True)
-
 If Err.Number <> 0 Then
     LogLine "ERROR: Failed to start PowerShell: " & Err.Description
     MsgBox "Не удалось запустить CyberCroc." & vbCrLf & vbCrLf & _
