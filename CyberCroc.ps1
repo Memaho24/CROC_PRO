@@ -23,8 +23,54 @@ function Get-CcGithubVersion {
     try {
         $r=Invoke-WebRequest -Uri $GithubVersionUrl -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
         $v=([string]$r.Content).Trim()
-        if($v -and $v -match '^\d+(\.\d+){1,3}if($cfg['THEME']){$cfg['THEME']}else{'dark'}
+        if($v -and $v -match '^\d+(\.\d+){1,3}$'){ return $v }
+    } catch {
+        Write-CcLog "GitHub version check skipped: $($_.Exception.Message)" 'WARN' 'Get-CcGithubVersion'
+    }
+    return ''
+}
+function Test-CcGithubUpdate {
+    try {
+        $remote=Get-CcGithubVersion
+        if([string]::IsNullOrWhiteSpace($remote)){ return $null }
+        $cmp=Compare-CcVersion $remote $Version
+        return [pscustomobject]@{Available=($cmp -gt 0);Local=$Version;Remote=$remote;Repo=$GithubRepo;Branch=$GithubBranch}
+    } catch {
+        Write-CcError -FunctionName 'Test-CcGithubUpdate' -Exception $_.Exception
+        return $null
+    }
+}
+function Start-CcGithubUpdate {
+    try {
+        if(-not(Test-Path -LiteralPath $GithubUpdateScript)){ throw "Updater.ps1 not found: $GithubUpdateScript" }
+        $args=@('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',('"{0}"' -f $GithubUpdateScript),'-Apply','-Github','-Repo',$GithubRepo,'-Branch',$GithubBranch,'-WaitPid',$PID)
+        Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList $args -WindowStyle Hidden | Out-Null
+        Write-CcLog "GitHub update accepted: $Version -> remote main" 'INFO' 'Start-CcGithubUpdate'
+        return $true
+    } catch {
+        Write-CcError -FunctionName 'Start-CcGithubUpdate' -Exception $_.Exception
+        return $false
+    }
+}
+function Invoke-CcStartupUpdateCheck {
+    try {
+        $u=Test-CcGithubUpdate
+        if(-not $u -or -not $u.Available){ return $false }
+        $answer=[System.Windows.Forms.MessageBox]::Show("Доступна новая версия CyberCroc.`r`n`r`nУстановлена: $($u.Local)`r`nНовая: $($u.Remote)`r`n`r`nОбновить программу сейчас?",'CyberCroc — доступно обновление',[System.Windows.Forms.MessageBoxButtons]::YesNo,[System.Windows.Forms.MessageBoxIcon]::Information)
+        if($answer -ne [System.Windows.Forms.DialogResult]::Yes){
+            Write-CcLog "GitHub update declined: local=$($u.Local) remote=$($u.Remote)" 'INFO' 'Invoke-CcStartupUpdateCheck'
+            return $false
+        }
+        if(Start-CcGithubUpdate){ return $true }
+        [void][System.Windows.Forms.MessageBox]::Show('Не удалось запустить обновление. CyberCroc продолжит запуск без обновления.','CyberCroc',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning)
+        return $false
+    } catch {
+        Write-CcError -FunctionName 'Invoke-CcStartupUpdateCheck' -Exception $_.Exception
+        return $false
+    }
+}
 
+$ThemeName=if($cfg['THEME']){$cfg['THEME']}else{'dark'}
 $C=@{}
 $C.Accent=[Drawing.Color]::FromArgb(57,255,20)
 $C.AccentDark=[Drawing.Color]::FromArgb(25,150,15)
