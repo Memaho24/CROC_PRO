@@ -24,6 +24,7 @@ $status=New-Object Windows.Forms.StatusStrip;$status.BackColor=$C.Panel
 $sl=New-Object Windows.Forms.ToolStripStatusLabel;$sl.Text="ПК: $env:COMPUTERNAME";$status.Items.Add($sl)|Out-Null
 $sv=New-Object Windows.Forms.ToolStripStatusLabel;$sv.Text="Версия: $Version";$status.Items.Add($sv)|Out-Null
 $clock=New-Object Windows.Forms.ToolStripStatusLabel;$clock.Spring=$true;$status.Items.Add($clock)|Out-Null
+$progress=New-Object Windows.Forms.ToolStripProgressBar;$progress.Visible=$false;$progress.Width=140;$status.Items.Add($progress)|Out-Null
 $form.Controls.Add($status)
 function Style-Control($x){try{$x.BackColor=$C.Control;$x.ForeColor=$C.Fg;if($x -is [Windows.Forms.Button]){$x.FlatStyle='Flat';$x.FlatAppearance.BorderColor=$C.Fg;$x.FlatAppearance.BorderSize=1}}catch{}}
 function New-Tab([string]$Text){$t=New-Object Windows.Forms.TabPage;$t.Text=$Text;$t.BackColor=$C.Bg;$t.ForeColor=$C.Fg;$tabs.TabPages.Add($t)|Out-Null;return $t}
@@ -68,7 +69,7 @@ function Account-Dialog($existing=$null){
 $aAdd.Add_Click({Account-Dialog});$aEdit.Add_Click({if($aList.SelectedItems.Count){Account-Dialog $aList.SelectedItems[0].Tag}})
 $aDel.Add_Click({if($aList.SelectedItems.Count){if([Windows.Forms.MessageBox]::Show('Удалить выбранный аккаунт?','CyberCroc','YesNo','Warning')-eq'Yes'){Remove-CcAccount $aList.SelectedItems[0].Tag.Id|Out-Null;Refresh-Accounts}}})
 $aLogin.Add_Click({if($aList.SelectedItems.Count){if(Start-CcAccountSession $aList.SelectedItems[0].Tag){Refresh-Accounts;Toast 'Сессия' 'Аккаунт запущен' 'OK'}else{Toast 'Ошибка' 'Не удалось запустить аккаунт' 'ERROR'}}})
-$aCheck.Add_Click({try{foreach($a in @(Get-CcAccounts)){Test-CcAccount $a $cfg|Out-Null};Save-CcAccounts @(Get-CcAccounts)|Out-Null;Refresh-Accounts;Toast 'Аккаунты' 'Проверка завершена' 'OK'}catch{Toast 'Ошибка' $_.Exception.Message 'ERROR'}})
+$aCheck.Add_Click({try{$progress.Visible=$true;$progress.Style='Marquee';foreach($a in @(Get-CcAccounts)){Test-CcAccount $a $cfg|Out-Null};Save-CcAccounts @(Get-CcAccounts)|Out-Null;Refresh-Accounts;$progress.Visible=$false;Toast 'Аккаунты' 'Проверка завершена' 'OK'}catch{$progress.Visible=$false;Toast 'Ошибка' $_.Exception.Message 'ERROR'}})
 $aSearch.Add_TextChanged({Refresh-Accounts $aSearch.Text})
 
 $app=New-Tab 'Приложения'
@@ -78,11 +79,13 @@ foreach($h in @('Название','Источник','Тип','Установл
 $appRun=Btn 'Проверить программы' 940 55 190;$appInstall=Btn 'Установить / обновить' 940 105 190;$app.Controls.Add($appRun);$app.Controls.Add($appInstall)
 function Run-AppTool([bool]$InstallMode){
     try{$args=@('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',(Join-Path $Tools 'Apps.ps1'));if($InstallMode){$args+=@('-Install','-Update')};$p=Start-Process powershell.exe -ArgumentList $args -WindowStyle Hidden -Wait -PassThru;Toast 'Приложения' "Завершено, код $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-AppTool' -Exception $_.Exception}}
-$appRun.Add_Click({Run-AppTool $false});$appInstall.Add_Click({Run-AppTool $true})
+$appRun.Add_Click({$progress.Visible=$true;$progress.Style='Marquee';Run-AppTool $false;$progress.Visible=$false});$appInstall.Add_Click({$progress.Visible=$true;$progress.Style='Marquee';Run-AppTool $true;$progress.Visible=$false})
 
-$backup=New-Tab 'Бэкап';$backup.Controls.Add((Lbl 'Резервное копирование выполняется существующими инструментами tools. Добавьте сюда свои действия по мере миграции.' 20 30 900 60))
-$cleanup=New-Tab 'Очистка';$cleanup.Controls.Add((Lbl 'Очистка выполняется существующим модулем Cleanup. Вызовы можно переносить сюда без запуска консоли.' 20 30 900 60))
+$backup=New-Tab 'Бэкап';$backup.Controls.Add((Lbl 'Резервное копирование' 20 20 300));$backupBtn=Btn 'Запустить бэкап' 20 60 180;$backup.Controls.Add($backupBtn)
+$cleanup=New-Tab 'Очистка';$cleanup.Controls.Add((Lbl 'Очистка ПК' 20 20 300));$cleanupBtn=Btn 'Запустить очистку' 20 60 180;$cleanup.Controls.Add($cleanupBtn)
 
+function Run-HiddenCmd([string]$Name){try{$path=Join-Path $Root $Name;if(-not(Test-Path $path)){throw "File not found: $path"};$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+$path+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' "$Name завершён, код $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception;Toast 'Ошибка' $_.Exception.Message 'ERROR'}}
+$backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$cleanupBtn.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
 $logs=New-Tab 'Логи'
 $logText=New-Object Windows.Forms.TextBox;$logText.Multiline=$true;$logText.ReadOnly=$true;$logText.ScrollBars='Both';$logText.Dock='Fill';$logText.Font=New-Object Drawing.Font('Consolas',9);Style-Control $logText;$logs.Controls.Add($logText)
 $logBtn=Btn 'Обновить' 15 15;$logs.Controls.Add($logBtn)
