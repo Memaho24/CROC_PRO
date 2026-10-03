@@ -419,3 +419,9 @@ $script:AppProcess=$null;$script:AppProcessName=''
 $appTimer=New-Object Windows.Forms.Timer;$appTimer.Interval=500;$appTimer.Add_Tick({try{if($null -ne $script:AppProcess){if($script:AppProcess.HasExited){$rc=$script:AppProcess.ExitCode;$appInfo.Text="Операция завершена: $script:AppProcessName`nКод: $rc";$progress.Visible=$false;if($rc -eq 0){Toast 'Программы' "$script:AppProcessName установлена/обновлена." 'OK'}else{Show-CcErrorPopup 'Установка программы' ([Exception]("$script:AppProcessName завершилась с кодом $rc"))};$script:AppProcess=$null}}}catch{}});$appTimer.Start()
 Refresh-Home;Refresh-GameCatalog;Refresh-AppCatalog;Refresh-Accounts;Refresh-Logs;Apply-Theme;Show-Page 'home'
 $form.Add_FormClosing({Write-CcLog 'GUI closed' 'INFO' 'FormClosing'})
+try {
+    [void][System.Windows.Forms.Application]::Run($form)
+} catch {
+    Write-CcError -FunctionName 'Application.Run' -Exception $_.Exception
+    throw
+}
