@@ -26,7 +26,10 @@ $form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('
 
 function Apply-ControlTheme([Windows.Forms.Control]$x){
     try{
-        $x.BackColor=$C.Control;$x.ForeColor=$C.Fg
+        if($x -is [Windows.Forms.TabPage] -or $x -is [Windows.Forms.Panel] -or $x -is [Windows.Forms.TableLayoutPanel] -or $x -is [Windows.Forms.FlowLayoutPanel]){$x.BackColor=$C.Bg}
+        elseif($x -is [Windows.Forms.StatusStrip]){$x.BackColor=$C.Panel}
+        else{$x.BackColor=$C.Control}
+        $x.ForeColor=$C.Fg
         if($x -is [Windows.Forms.Button]){$x.FlatStyle='Flat';$x.FlatAppearance.BorderColor=$C.Border;$x.FlatAppearance.BorderSize=1}
         foreach($c in $x.Controls){Apply-ControlTheme $c}
     }catch{}
@@ -137,7 +140,22 @@ $aList=New-Object Windows.Forms.ListView;$aList.View='Details';$aList.FullRowSel
 $ab=New-Flow;$aAdd=New-Button 'Добавить';$aEdit=New-Button 'Изменить';$aDel=New-Button 'Удалить';$aCheck=New-Button 'Проверить';$aLogin=New-Button 'Сменить';$aExport=New-Button 'Экспорт';$aImport=New-Button 'Импорт';foreach($b in @($aAdd,$aEdit,$aDel,$aCheck,$aLogin,$aExport,$aImport)){$ab.Controls.Add($b)};$al.Controls.Add($ab,1,0)
 $aSearch=New-Object Windows.Forms.TextBox;$aSearch.Width=280;Apply-ControlTheme $aSearch;$al.Controls.Add($aSearch,0,1)
 function Refresh-Accounts([string]$q=''){try{$aList.Items.Clear();foreach($a in Get-CcAccounts){if($q -and "$($a.Platform) $($a.Login)" -notlike "*$q*"){continue};$i=New-Object Windows.Forms.ListViewItem($a.Platform);[void]$i.SubItems.Add($a.Login);[void]$i.SubItems.Add($a.Status);[void]$i.SubItems.Add($(if($a.Banned){'BAN'}else{'-'}));[void]$i.SubItems.Add([string]$a.LastCheck);$i.Tag=$a;[void]$aList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
-$aAdd.Add_Click({[Windows.Forms.MessageBox]::Show('Используйте существующий менеджер аккаунтов после открытия списка.','CyberCroc')|Out-Null})
+function Show-AccountDialog($existing=$null){
+    $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить аккаунт'}else{'Добавить аккаунт'};$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(520,390);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
+    $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6;$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,130)));$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
+    $names=@('Платформа','Логин','Пароль','Комментарий','Игры');$f=@{}
+    for($r=0;$r-lt 5;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t;$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
+    if($existing){$f['Платформа'].Text=$existing.Platform;$f['Логин'].Text=$existing.Login;$f['Комментарий'].Text=$existing.Comment;$f['Игры'].Text=($existing.Games -join ',')}else{$f['Платформа'].Text='Steam'};$f['Пароль'].UseSystemPasswordChar=$true
+    $p=New-Flow;$p.FlowDirection='RightToLeft';$ok=New-Button 'Сохранить';$cancel=New-Button 'Отмена';$p.Controls.Add($ok);$p.Controls.Add($cancel);$l.Controls.Add($p,1,5);$cancel.Add_Click({$d.Close()})
+    $ok.Add_Click({try{$games=@($f['Игры'].Text-split ','|ForEach-Object{$_.Trim()}|Where-Object{$_});if($existing){Update-CcAccount $existing.Id @{Platform=$f['Платформа'].Text;Login=$f['Логин'].Text;Password=$f['Пароль'].Text;Comment=$f['Комментарий'].Text;Games=$games}|Out-Null}else{New-CcAccount $f['Платформа'].Text $f['Логин'].Text $f['Пароль'].Text $f['Комментарий'].Text $games|Out-Null};$d.Close();Refresh-Accounts $aSearch.Text}catch{Write-CcError -FunctionName 'Account-Dialog' -Exception $_.Exception}})
+    [void]$d.ShowDialog($form)
+}
+$aAdd.Add_Click({Show-AccountDialog})
+$aEdit.Add_Click({if($aList.SelectedItems.Count){Show-AccountDialog $aList.SelectedItems[0].Tag}})
+$aDel.Add_Click({if($aList.SelectedItems.Count){Remove-CcAccount $aList.SelectedItems[0].Tag.Id|Out-Null;Refresh-Accounts $aSearch.Text}})
+$aLogin.Add_Click({if($aList.SelectedItems.Count){Start-CcAccountSession $aList.SelectedItems[0].Tag|Out-Null;Refresh-Accounts $aSearch.Text}})
+$aExport.Add_Click({try{$d=New-Object Windows.Forms.SaveFileDialog;$d.Filter='JSON|*.json';if($d.ShowDialog() -eq 'OK'){@(Get-CcAccounts)|ConvertTo-Json -Depth 12|Set-Content $d.FileName -Encoding UTF8}}catch{Write-CcError -FunctionName 'Account-Export' -Exception $_.Exception}})
+$aImport.Add_Click({try{$d=New-Object Windows.Forms.OpenFileDialog;$d.Filter='JSON|*.json';if($d.ShowDialog() -eq 'OK'){Save-CcAccounts @(Get-Content $d.FileName -Raw -Encoding UTF8|ConvertFrom-Json)|Out-Null;Refresh-Accounts}}catch{Write-CcError -FunctionName 'Account-Import' -Exception $_.Exception}})
 $aCheck.Add_Click({try{$progress.Visible=$true;$progress.Style='Marquee';foreach($a in @(Get-CcAccounts)){Test-CcAccount $a $cfg|Out-Null};Save-CcAccounts @(Get-CcAccounts)|Out-Null;Refresh-Accounts;$progress.Visible=$false}catch{$progress.Visible=$false;Write-CcError -FunctionName 'Account-Check' -Exception $_.Exception}})
 $aSearch.Add_TextChanged({Refresh-Accounts $aSearch.Text})
 
