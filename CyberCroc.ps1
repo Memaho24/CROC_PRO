@@ -192,7 +192,7 @@ $shell=New-Object Windows.Forms.TableLayoutPanel;$shell.Dock='Fill';$shell.Colum
 [void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,220)));[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)))
 [void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,32)));$form.Controls.Add($shell)
 
-$nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12;$shell.Controls.Add($nav,0,0)
+$nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12);$shell.Controls.Add($nav,0,0)
 $brand=New-Label '🐊 CYBER CROC' 20 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,16);$nav.Controls.Add($brand)
 $brand2=New-Label "Разработчик: Эдуард  |  Патч: $Version" 8 'Bold';$brand2.ForeColor=$C.Muted;$brand2.Location=New-Object Drawing.Point(20,49);$brand2.AutoSize=$true;$nav.Controls.Add($brand2)
 $menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Location=New-Object Drawing.Point(12,92);$menu.Anchor=([Windows.Forms.AnchorStyles]::Top -bor [Windows.Forms.AnchorStyles]::Bottom -bor [Windows.Forms.AnchorStyles]::Left -bor [Windows.Forms.AnchorStyles]::Right);$menu.Size=New-Object Drawing.Size(196,520);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$false;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
