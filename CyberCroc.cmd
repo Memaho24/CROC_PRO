@@ -1,4 +1,4 @@
 @echo off
-rem Launch the CyberCroc GUI (double-click)
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0CyberCroc.ps1"
+rem CyberCroc GUI launcher. The real entry point is launcher.vbs.
+wscript.exe "%~dp0launcher.vbs"
 exit /b 0
