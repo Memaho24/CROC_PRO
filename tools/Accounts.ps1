@@ -95,20 +95,20 @@ function Remove-CcAccount {
 function Get-CcSteamExe {
     try {
         $candidates=@()
-        foreach($k in @('HKCU:SoftwareValveSteam','HKLM:SOFTWAREValveSteam','HKLM:SOFTWAREWOW6432NodeValveSteam')){
+        foreach($k in @('HKCU:\Software\Valve\Steam','HKLM:\SOFTWARE\Valve\Steam','HKLM:\SOFTWARE\WOW6432Node\Valve\Steam')){
             try{$p=Get-ItemProperty -LiteralPath $k -ErrorAction Stop; foreach($n in 'SteamPath','InstallPath'){if($p.$n){$candidates+=(Join-Path $p.$n 'steam.exe')}}}catch{}
         }
-        $candidates+=@('C:Program Files (x86)Steamsteam.exe','C:Program FilesSteamsteam.exe')
+        $candidates+=@('C:\Program Files (x86)\Steam\steam.exe','C:\Program Files\Steam\steam.exe')
         foreach($c in $candidates){if(Test-Path -LiteralPath $c){return $c}}
         return $null
     } catch { Write-CcError -FunctionName 'Get-CcSteamExe' -Exception $_.Exception; return $null }
 }
 function Get-CcSteamId64([string]$SteamRoot,[string]$Login) {
     try {
-        $f=Join-Path $SteamRoot 'configloginusers.vdf'; if(-not(Test-Path $f)){return ''}
+        $f=Join-Path $SteamRoot 'config\loginusers.vdf'; if(-not(Test-Path $f)){return ''}
         $txt=Get-Content $f -Raw -ErrorAction Stop
-        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>d{17})"s*{(?<body>.*?)}')){
-            if($m.Groups['body'].Value -match '"AccountName"s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
+        foreach($m in [regex]::Matches($txt,'(?ms)"(?<id>\d{17})"\s*{(?<body>.*?)}')){
+            if($m.Groups['body'].Value -match '"AccountName"\s+"'+[regex]::Escape($Login)+'"'){return $m.Groups['id'].Value}
         }
         $first=[regex]::Match($txt,'"(\d{17})"'); if($first.Success){return $first.Groups[1].Value}
         return ''
