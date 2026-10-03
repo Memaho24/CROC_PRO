@@ -99,8 +99,8 @@ function Show-Page([string]$Key){
 }
 
 # Home
-$home=New-Object Windows.Forms.Panel;$home.Dock='Fill';$home.BackColor=$C.Bg;$home.Controls.Add((New-PageTitle 'Главная' 'Здесь видно, всё ли в порядке с этим компьютером.'))
-$homeBody=New-Object Windows.Forms.FlowLayoutPanel;$homeBody.Dock='Fill';$homeBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$homeBody.WrapContents=$true;$homeBody.AutoScroll=$true;$homeBody.BackColor=$C.Bg;$home.Controls.Add($homeBody)
+$homePage=New-Object Windows.Forms.Panel;$homePage.Dock='Fill';$homePage.BackColor=$C.Bg;$homePage.Controls.Add((New-PageTitle 'Главная' 'Здесь видно, всё ли в порядке с этим компьютером.'))
+$homeBody=New-Object Windows.Forms.FlowLayoutPanel;$homeBody.Dock='Fill';$homeBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$homeBody.WrapContents=$true;$homeBody.AutoScroll=$true;$homeBody.BackColor=$C.Bg;$homePage.Controls.Add($homeBody)
 $welcome=New-Object Windows.Forms.Panel;$welcome.Width=740;$welcome.Height=105;$welcome.Margin=New-Object Windows.Forms.Padding(8);$welcome.BackColor=$C.Panel
 $wl=New-Label "ПК $env:COMPUTERNAME готов к работе" 20 'Bold';$wl.Location=New-Object Drawing.Point(20,15);$welcome.Controls.Add($wl)
 $wh=New-Label 'Если всё зелёное — ничего делать не нужно.' 10;$wh.ForeColor=$C.Muted;$wh.Location=New-Object Drawing.Point(22,57);$welcome.Controls.Add($wh);$homeBody.Controls.Add($welcome)
@@ -119,8 +119,8 @@ function Refresh-Home{
 $homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Компьютер проверен.' 'OK'}finally{$progress.Visible=$false}})
 $homeCleanup.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
 $homeBackup.Add_Click({Run-HiddenCmd 'Backup.cmd'})
-$pages['home']=$home
-$home.Controls[0].BringToFront()
+$pages['home']=$homePage
+$homePage.Controls[0].BringToFront()
 
 # Games
 $games=New-Object Windows.Forms.Panel;$games.Dock='Fill';$games.BackColor=$C.Bg;$games.Controls.Add((New-PageTitle 'Игры' 'Выберите игру и нажмите нужную большую кнопку.'))
