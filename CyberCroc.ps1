@@ -299,7 +299,19 @@ $fields=@{};$labels=@('Название','Лаунчер','Цена','Путь �
 $buttons=New-Flow;$ok=New-Button 'Сохранить' 150 52;$cancel=New-Button 'Отмена' 130 52;$buttons.Controls.Add($ok);$buttons.Controls.Add($cancel);$l.Controls.Add($buttons,1,5);$cancel.Add_Click({$d.Close()})
 $ok.Add_Click({try{if([string]::IsNullOrWhiteSpace($fields['Название'].Text)){throw 'Введите название игры.'};$g=[pscustomobject]@{Name=$fields['Название'].Text.Trim();PathCheck=$fields['Путь к EXE'].Text.Trim();Launcher=$fields['Лаунчер'].Text.Trim();Price=$fields['Цена'].Text.Trim();AppID=$fields['AppID'].Text.Trim()};$script:GameCatalog=@($script:GameCatalog|Where-Object{$_.Name -ne $g.Name})+$g;if(-not(Save-GameCatalogToFile $script:GameCatalog)){throw 'Не удалось сохранить games.txt'};Refresh-GameCatalog;$d.Close();Toast 'Игры' 'Игра добавлена в каталог.' 'OK'}catch{Write-CcError -FunctionName 'CustomGameDialog' -Exception $_.Exception;Show-CcErrorPopup 'Своя игра' $_.Exception}});[void]$d.ShowDialog($form)
 }catch{Write-CcError -FunctionName 'Show-CustomGameDialog' -Exception $_.Exception;throw}}
-function Scan-LanGames{try{$progress.Visible=$true;$gameInfo.Text='Сканирую компьютеры локальной сети...';$peers=@(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue|Where-Object{$_.State -in @('Reachable','Stale','Delay','Probe') -and $_.IPAddress -notlike '224.*' -and $_.IPAddress -notlike '239.*'}|Select-Object -ExpandProperty IPAddress -Unique);$rows=@();$selected=if($gameList.SelectedItems.Count){$gameList.SelectedItems[0].Tag}else{$null};foreach($ip in $peers){$name=$ip;try{$name=[System.Net.Dns]::GetHostEntry($ip).HostName}catch{};$steam='нет';$base="\\$ip\C$\Program Files (x86)\Steam";if(Test-Path -LiteralPath (Join-Path $base 'steam.exe')){$steam='есть'};$rows+="${name}  [$ip]  — Steam: $steam"};if($rows.Count){$gameInfo.Text="ПК в локальной сети:`r`n`r`n"+($rows -join "`r`n")}else{$gameInfo.Text='Активные ПК в локальной сети не найдены или недоступны.'}}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}finally{$progress.Visible=$false}}
+function Scan-LanGames{
+    try{
+        $progressLabel.Text='Локальная сеть: сканирование...';$progress.Visible=$true;Write-CcLog 'LAN scan started' 'INFO' 'Scan-LanGames';$gameInfo.Text='Сканирую компьютеры локальной сети...'
+        $cmd=Get-Command Get-NetNeighbor -ErrorAction SilentlyContinue
+        if($null -eq $cmd){throw 'Команда Get-NetNeighbor недоступна. Проверьте компоненты Windows.'}
+        $peers=@(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction Stop | Where-Object {$_.State -in @('Reachable','Stale','Delay','Probe') -and $_.IPAddress -notlike '224.*' -and $_.IPAddress -notlike '239.*'} | Select-Object -ExpandProperty IPAddress -Unique)
+        $rows=@()
+        foreach($ip in $peers){$name=$ip;try{$name=[System.Net.Dns]::GetHostEntry($ip).HostName}catch{Write-CcLog "DNS lookup failed for $ip" 'WARN' 'Scan-LanGames'};$rows+="${name}  [$ip]"}
+        if($rows.Count){$gameInfo.Text="Найдено ПК: $($rows.Count)`r`n`r`n"+($rows -join "`r`n")}else{$gameInfo.Text='Активные ПК в локальной сети не найдены.'}
+        Write-CcLog "LAN scan finished: $($rows.Count) hosts" 'OK' 'Scan-LanGames'
+    }catch{Write-CcError -FunctionName 'Scan-LanGames' -Exception $_.Exception;Show-CcErrorPopup 'Локальная сеть' $_.Exception}
+    finally{$progress.Visible=$false;$progressLabel.Text='Выполняется операция...'}
+}
 $pages['games']=$games;$games.Controls[0].BringToFront();Refresh-GameCatalog
 # Accounts
 $accounts=New-Object Windows.Forms.Panel;$accounts.Dock='Fill';$accounts.BackColor=$C.Bg;$accounts.Controls.Add((New-PageTitle 'Аккаунты' 'Игровые аккаунты клуба. Не нужно открывать отдельные программы.'))
