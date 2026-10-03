@@ -220,11 +220,24 @@ $homeCheck=New-Button 'Проверить ПК' 220 62;$homeCleanup=New-Button '
 
 function Refresh-Home{
     try{
-        $h=Get-CcHardware;$c=Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue;$free=if($c){[math]::Round($c.FreeSpace/1GB,1)}else{0};$size=if($c){[math]::Round($c.Size/1GB,1)}else{0}
-        $share=[string]$cfg['UPDATE_SHARE'];$online=if($share -and (Test-Path -LiteralPath $share)){$true}else{$false}
-        $cardPC.Controls[1].Text='ГОТОВ';$cardPC.Controls[1].ForeColor=$C.Accent;$cardDisk.Controls[1].Text="$free GB";$cardDisk.Controls[2].Text="из $size GB";$cardNet.Controls[1].Text=if($online){'ONLINE'}else{'OFFLINE'};$cardNet.Controls[1].ForeColor=if($online){$C.Accent}else{$C['Warning']}
+        $h=Get-CcHardware
+        $diskC=Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
+        $free=if($diskC){[math]::Round($diskC.FreeSpace/1GB,1)}else{0}
+        $size=if($diskC){[math]::Round($diskC.Size/1GB,1)}else{0}
+        $share=[string]$cfg['UPDATE_SHARE']
+        $online=if($share -and (Test-Path -LiteralPath $share)){$true}else{$false}
+        $cardPC.Controls[1].Text='ГОТОВ'
+        $cardPC.Controls[1].ForeColor=$C.Accent
+        $cardDisk.Controls[1].Text="$free GB"
+        $cardDisk.Controls[2].Text="из $size GB"
+        $cardNet.Controls[1].Text=if($online){'ONLINE'}else{'OFFLINE'}
+        $cardNet.Controls[1].ForeColor=if($online){$C.Accent}else{$C['Warning']}
         $footer.Text="ПК: $env:COMPUTERNAME   •   CyberCroc $Version   •   CPU: $($h.CPU)"
-    }catch{$cardPC.Controls[1].Text='ОШИБКА';$cardPC.Controls[1].ForeColor=$C['Danger'];Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception}
+    }catch{
+        $cardPC.Controls[1].Text='ОШИБКА'
+        $cardPC.Controls[1].ForeColor=$C['Danger']
+        Write-CcError -FunctionName 'Refresh-Home' -Exception $_.Exception
+    }
 }
 $homeCheck.Add_Click({$progress.Visible=$true;try{Refresh-Home;Toast 'Проверка ПК' 'Компьютер проверен.' 'OK'}finally{$progress.Visible=$false}})
 $homeCleanup.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
