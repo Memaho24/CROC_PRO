@@ -155,12 +155,12 @@ function Set-Theme([string]$Name){
 Set-Theme $ThemeName
 
 $form=New-Object Windows.Forms.Form
-$form.Text="🐊 CyberCroc 🐊 — управление ПК";$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.MinimumSize=New-Object Drawing.Size(1100,700);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10)
+$form.Text="🐊 CyberCroc — управление ПК";$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.AutoScaleMode=[Windows.Forms.AutoScaleMode]::Dpi;$form.AutoScaleDimensions=New-Object Drawing.SizeF(96,96);$form.MinimumSize=New-Object Drawing.Size(1280,760);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10)
 
 function New-Label([string]$Text,[int]$Size=10,[System.Drawing.FontStyle]$Style='Regular'){
     $x=New-Object Windows.Forms.Label;$x.Text=$Text;$x.AutoSize=$true;$x.Font=New-Object Drawing.Font('Segoe UI',$Size,$Style);$x.ForeColor=$C.Fg;return $x
 }
-function New-Button([string]$Text,[int]$Width=190,[int]$Height=48){
+function New-Button([string]$Text,[int]$Width=220,[int]$Height=56){
     $x=New-Object Windows.Forms.Button;$x.Text=$Text;$x.Width=$Width;$x.Height=$Height;$x.Margin=New-Object Windows.Forms.Padding(6);$x.FlatStyle='Flat';$x.FlatAppearance.BorderSize=1;$x.FlatAppearance.BorderColor=$C.Fg;if($x -is [Windows.Forms.Label]){$x.BackColor=[Drawing.Color]::Transparent;$x.ForeColor=$C.Fg}else{$x.BackColor=$C.Control;$x.ForeColor=$C.Fg};$x.Font=New-Object Drawing.Font('Segoe UI',10,[Drawing.FontStyle]::Bold);$x.Cursor=[Windows.Forms.Cursors]::Hand;return $x
 }
 function New-PageTitle([string]$Title,[string]$Hint){
@@ -169,10 +169,10 @@ function New-PageTitle([string]$Title,[string]$Hint){
     $h=New-Label $Hint 10;$h.ForeColor=$C.Muted;$h.Location=New-Object Drawing.Point(26,50);$p.Controls.Add($h);return $p
 }
 function New-Card([string]$Title,[string]$Value,[string]$Hint){
-    $p=New-Object Windows.Forms.Panel;$p.Width=235;$p.Height=125;$p.Margin=New-Object Windows.Forms.Padding(8);$p.BackColor=$C.Panel;$p.BorderStyle='FixedSingle'
-    $a=New-Label $Title 10 'Bold';$a.ForeColor=$C.Muted;$a.Location=New-Object Drawing.Point(15,13);$p.Controls.Add($a)
-    $v=New-Label $Value 23 'Bold';$v.Location=New-Object Drawing.Point(15,39);$p.Controls.Add($v)
-    $h=New-Label $Hint 9;$h.ForeColor=$C.Muted;$h.Location=New-Object Drawing.Point(15,88);$p.Controls.Add($h);return $p
+    $p=New-Object Windows.Forms.Panel;$p.Width=280;$p.Height=132;$p.Margin=New-Object Windows.Forms.Padding(8);$p.BackColor=$C.Panel;$p.BorderStyle='FixedSingle'
+    $a=New-Label $Title 10 'Bold';$a.ForeColor=$C.Muted;$a.Location=New-Object Drawing.Point(15,13);$a.MaximumSize=New-Object Drawing.Size(250,0);$p.Controls.Add($a)
+    $v=New-Label $Value 21 'Bold';$v.Location=New-Object Drawing.Point(15,39);$v.MaximumSize=New-Object Drawing.Size(250,0);$p.Controls.Add($v)
+    $h=New-Label $Hint 9;$h.ForeColor=$C.Muted;$h.Location=New-Object Drawing.Point(15,91);$h.MaximumSize=New-Object Drawing.Size(250,0);$p.Controls.Add($h);return $p
 }
 function New-Flow([string]$Direction='LeftToRight'){
     $p=New-Object Windows.Forms.FlowLayoutPanel;$p.Dock='Fill';$p.AutoScroll=$true;$p.WrapContents=$true;$p.Padding=New-Object Windows.Forms.Padding(18);$p.FlowDirection=$Direction;$p.BackColor=$C.Bg;return $p
@@ -192,15 +192,15 @@ $shell=New-Object Windows.Forms.TableLayoutPanel;$shell.Dock='Fill';$shell.Colum
 [void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,220)));[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)))
 [void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,32)));$form.Controls.Add($shell)
 
-$nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12);$shell.Controls.Add($nav,0,0)
-$brand=New-Label '🐊 CYBER CROC 🐊' 20 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,16);$nav.Controls.Add($brand)
+$nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12;$shell.Controls.Add($nav,0,0)
+$brand=New-Label '🐊 CYBER CROC' 20 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,16);$nav.Controls.Add($brand)
 $brand2=New-Label "Разработчик: Эдуард  |  Патч: $Version" 8 'Bold';$brand2.ForeColor=$C.Muted;$brand2.Location=New-Object Drawing.Point(20,49);$brand2.AutoSize=$true;$nav.Controls.Add($brand2)
-$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Location=New-Object Drawing.Point(12,92);$menu.Size=New-Object Drawing.Size(196,520);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$true;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
+$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Location=New-Object Drawing.Point(12,92);$menu.Anchor=([Windows.Forms.AnchorStyles]::Top -bor [Windows.Forms.AnchorStyles]::Bottom -bor [Windows.Forms.AnchorStyles]::Left -bor [Windows.Forms.AnchorStyles]::Right);$menu.Size=New-Object Drawing.Size(196,520);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$false;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
 
 $content=New-Object Windows.Forms.Panel;$content.Dock='Fill';$content.BackColor=$C.Bg;$shell.Controls.Add($content,1,0)
 $footer=New-Label "ПК: $env:COMPUTERNAME   •   CyberCroc $Version" 9;$footer.ForeColor=$C.Muted;$footer.TextAlign='MiddleLeft';$footer.Dock='Fill';$footer.Padding=New-Object Windows.Forms.Padding(14,0,0,0);$shell.Controls.Add($footer,0,1);$shell.SetColumnSpan($footer,2)
-$clock=New-Label '' 9;$clock.ForeColor=$C.Muted;$clock.AutoSize=$false;$clock.Dock='Right';$clock.Width=90;$clock.TextAlign='MiddleRight';$footer.Controls.Add($clock)
-$progress=New-Object Windows.Forms.ProgressBar;$progress.Style='Marquee';$progress.Visible=$false;$progress.Width=180;$progress.Height=14;$footer.Controls.Add($progress)
+$clock=New-Label '' 9;$clock.ForeColor=$C.Muted;$clock.AutoSize=$false;$clock.Dock='Right';$clock.Width=110;$clock.TextAlign='MiddleRight';$footer.Controls.Add($clock)
+$progress=New-Object Windows.Forms.ProgressBar;$progress.Style='Marquee';$progress.Visible=$false;$progress.Width=220;$progress.Height=16;$footer.Controls.Add($progress)
 
 $pages=@{};$navButtons=@{}
 function Clear-Content{$content.Controls.Clear()}
@@ -378,12 +378,12 @@ $logs.Controls[0].BringToFront()
 # Settings
 $settings=New-Object Windows.Forms.Panel;$settings.Dock='Fill';$settings.BackColor=$C.Bg;$settings.Controls.Add((New-PageTitle 'Настройки' 'Изменяйте только то, что действительно нужно.'))
 $setBody=New-Object Windows.Forms.FlowLayoutPanel;$setBody.Dock='Fill';$setBody.Padding=New-Object Windows.Forms.Padding(24,105,24,24);$setBody.WrapContents=$true;$setBody.AutoScroll=$true;$setBody.BackColor=$C.Bg;$settings.Controls.Add($setBody)
-$themeBox=New-Object Windows.Forms.Panel;$themeBox.Width=700;$themeBox.Height=120;$themeBox.BackColor=$C.Panel;$setBody.Controls.Add($themeBox)
+$themeBox=New-Object Windows.Forms.Panel;$themeBox.Width=760;$themeBox.Height=120;$themeBox.BackColor=$C.Panel;$setBody.Controls.Add($themeBox)
 $themeLabel=New-Label 'ТЕМА' 11 'Bold';$themeLabel.Location=New-Object Drawing.Point(18,18);$themeBox.Controls.Add($themeLabel)
 $theme=New-Object Windows.Forms.ComboBox;$theme.DropDownStyle='DropDownList';[void]$theme.Items.AddRange(@('dark','neon','light'));$theme.SelectedItem=$ThemeName;$theme.Width=220;$theme.Location=New-Object Drawing.Point(18,52);$theme.BackColor=$C.Control;$theme.ForeColor=$C.Fg;$themeBox.Controls.Add($theme)
-$shareBox=New-Object Windows.Forms.Panel;$shareBox.Width=700;$shareBox.Height=120;$shareBox.BackColor=$C.Panel;$setBody.Controls.Add($shareBox)
+$shareBox=New-Object Windows.Forms.Panel;$shareBox.Width=760;$shareBox.Height=120;$shareBox.BackColor=$C.Panel;$setBody.Controls.Add($shareBox)
 $shareLabel=New-Label 'ПАПКА ОБНОВЛЕНИЙ' 11 'Bold';$shareLabel.Location=New-Object Drawing.Point(18,18);$shareBox.Controls.Add($shareLabel)
-$share=New-Object Windows.Forms.TextBox;$share.Text=$cfg['UPDATE_SHARE'];$share.Width=630;$share.Location=New-Object Drawing.Point(18,52);$share.BackColor=$C.Control;$share.ForeColor=$C.Fg;$shareBox.Controls.Add($share)
+$share=New-Object Windows.Forms.TextBox;$share.Text=$cfg['UPDATE_SHARE'];$share.Width=690;$share.Location=New-Object Drawing.Point(18,52);$share.BackColor=$C.Control;$share.ForeColor=$C.Fg;$shareBox.Controls.Add($share)
 $saveSettings=New-Button 'Сохранить настройки' 240 60;$checkUpdate=New-Button 'Проверить обновление' 240 60;$setBody.Controls.Add($saveSettings);$setBody.Controls.Add($checkUpdate)
 $theme.Add_SelectedIndexChanged({Set-Theme $theme.Text;Apply-Theme})
 $saveSettings.Add_Click({try{$cfg['THEME']=$theme.Text;$cfg['UPDATE_SHARE']=$share.Text;$lines=@();foreach($k in $cfg.Keys){$lines+=($k+'='+$cfg[$k])};Set-Content (Join-Path $Root 'config.ini') ($lines -join [Environment]::NewLine) -Encoding UTF8;Apply-Theme;Toast 'Настройки' 'Настройки сохранены.' 'OK'}catch{Write-CcError -FunctionName 'SaveSettings' -Exception $_.Exception}})
