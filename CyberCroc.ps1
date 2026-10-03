@@ -313,14 +313,14 @@ function Show-AccountDialog($existing=$null){
     $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6
     [void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,130)));[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
     $names=@('Платформа','Логин','Пароль','Комментарий','Игры');$f=@{}
-    for($r=0;$r-lt 5;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t;$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
+    for($r=0;$r-lt 5;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);if($names[$r] -eq 'Платформа'){$t=New-Object Windows.Forms.ComboBox;$t.DropDownStyle='DropDownList';[void]$t.Items.AddRange(@('Steam','Riot Games','Battle.net','Epic Games'));$t.Dock='Fill';Apply-ControlTheme $t}else{$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t};$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
     if($existing){$f['Платформа'].Text=$existing.Platform;$f['Логин'].Text=$existing.Login;$f['Комментарий'].Text=$existing.Comment;$f['Игры'].Text=($existing.Games -join ',')}else{$f['Платформа'].Text='Steam'}
     $f['Пароль'].UseSystemPasswordChar=$true
     $p=New-Flow;$p.FlowDirection='RightToLeft';$ok=New-Button 'Сохранить';$cancel=New-Button 'Отмена';$p.Controls.Add($ok);$p.Controls.Add($cancel);$l.Controls.Add($p,1,5);$cancel.Add_Click({$d.Close()})
     $ok.Add_Click({try{$games=@($f['Игры'].Text-split ','|ForEach-Object{$_.Trim()}|Where-Object{$_});if($existing){Update-CcAccount $existing.Id @{Platform=$f['Платформа'].Text;Login=$f['Логин'].Text;Password=$f['Пароль'].Text;Comment=$f['Комментарий'].Text;Games=$games}|Out-Null}else{New-CcAccount $f['Платформа'].Text $f['Логин'].Text $f['Пароль'].Text $f['Комментарий'].Text $games|Out-Null};$d.Close();Refresh-Accounts}catch{Write-CcError -FunctionName 'Account-Dialog' -Exception $_.Exception;Toast 'Аккаунты' $_.Exception.Message 'ERROR'}})
     [void]$d.ShowDialog($form)
 }
-$aAdd.Add_Click({Show-AccountDialog})
+$aAdd.Add_Click({try{Show-AccountDialog}catch{Show-CcErrorPopup 'Аккаунты' $_.Exception}})
 $aEdit.Add_Click({if($aList.SelectedItems.Count){Show-AccountDialog $aList.SelectedItems[0].Tag}else{Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO'}})
 $aDel.Add_Click({if($aList.SelectedItems.Count){Remove-CcAccount $aList.SelectedItems[0].Tag.Id|Out-Null;Refresh-Accounts}})
 $pages['accounts']=$accounts
@@ -395,6 +395,8 @@ Add-MenuButton 'logs' '≡  ЖУРНАЛ'
 Add-MenuButton 'settings' '⚙  НАСТРОЙКИ'
 
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
+$syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
+try{Sync-CcAccounts Pull|Out-Null}catch{}
 Refresh-Home;Refresh-Games;Refresh-Accounts;Refresh-Logs;Apply-Theme;Show-Page 'home'
 $form.Add_FormClosing({Write-CcLog 'GUI closed' 'INFO' 'FormClosing'})
 [void]$form.ShowDialog()
