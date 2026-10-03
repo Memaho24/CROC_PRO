@@ -156,6 +156,18 @@ $gameSearch.Add_TextChanged({Refresh-Games $gameSearch.Text})
 $gameLaunch.Add_Click({if($gameList.SelectedItems.Count){Invoke-GameAction $gameList.SelectedItems[0].Tag 'Launch';Refresh-Games $gameSearch.Text}else{Toast 'Игры' 'Сначала выберите игру.' 'INFO'}})
 $gameInstall.Add_Click({if($gameList.SelectedItems.Count){Invoke-GameAction $gameList.SelectedItems[0].Tag 'Install';Refresh-Games $gameSearch.Text}else{Toast 'Игры' 'Сначала выберите игру.' 'INFO'}})
 $gameUpdate.Add_Click({if($gameList.SelectedItems.Count){Invoke-GameAction $gameList.SelectedItems[0].Tag 'Update';Refresh-Games $gameSearch.Text}else{Toast 'Игры' 'Сначала выберите игру.' 'INFO'}})
+function Save-Games([object[]]$Games){
+    try{
+        $file=Join-Path $Root 'games.txt'
+        $tmp="$file.tmp"
+        $lines=@('# CyberCroc game inventory','# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion')
+        foreach($g in @($Games)){$lines += ('{0}|{1}|{2}|{3}|{4}|{5}' -f $g.Name,$g.PathCheck,$g.Source,$g.Launcher,$g.AppID,$g.MinVersion)}
+        Set-Content -LiteralPath $tmp -Value $lines -Encoding UTF8
+        Move-Item -LiteralPath $tmp -Destination $file -Force
+        Write-CcLog "Games saved: $(@($Games).Count)" 'OK' 'Save-Games'
+        return $true
+    }catch{Write-CcError -FunctionName 'Save-Games' -Exception $_.Exception;return $false}
+}
 function Show-GameDialog($existing=$null){
     $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить игру'}else{'Добавить игру'};$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(620,430);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
     $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=7
@@ -243,7 +255,7 @@ $share=New-Object Windows.Forms.TextBox;$share.Text=$cfg['UPDATE_SHARE'];$share.
 $saveSettings=New-Button 'Сохранить настройки' 240 60;$checkUpdate=New-Button 'Проверить обновление' 240 60;$setBody.Controls.Add($saveSettings);$setBody.Controls.Add($checkUpdate)
 $theme.Add_SelectedIndexChanged({Set-Theme $theme.Text;Apply-Theme})
 $saveSettings.Add_Click({try{$cfg['THEME']=$theme.Text;$cfg['UPDATE_SHARE']=$share.Text;$lines=@();foreach($k in $cfg.Keys){$lines+=($k+'='+$cfg[$k])};Set-Content (Join-Path $Root 'config.ini') ($lines -join [Environment]::NewLine) -Encoding UTF8;Apply-Theme;Toast 'Настройки' 'Настройки сохранены.' 'OK'}catch{Write-CcError -FunctionName 'SaveSettings' -Exception $_.Exception}})
-$checkUpdate.Add_Click({try{$u=Join-Path $Tools 'Updater.ps1';$p=Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',$u,'-Check','-Source',$share.Text) -WindowStyle Hidden -Wait -PassThru;Toast 'Обновление' $(if($p.ExitCode -eq 0){'Проверка завершена.'}else{"Код $($p.ExitCode)"}) 'INFO'}catch{Write-CcError -FunctionName 'UpdateNow' -Exception $_.Exception}})
+$checkUpdate.Add_Click({try{$u=Test-CcGithubUpdate;if(-not $u){Toast 'Обновление' 'GitHub сейчас недоступен. Проверьте интернет.' 'INFO';return};if($u.Available){$answer=[System.Windows.Forms.MessageBox]::Show("Доступна версия $($u.Remote). Установлена $($u.Local).`r`n`r`nОбновить сейчас?",'CyberCroc — обновление',[System.Windows.Forms.MessageBoxButtons]::YesNo,[System.Windows.Forms.MessageBoxIcon]::Information);if($answer -eq [System.Windows.Forms.DialogResult]::Yes){if(Start-CcGithubUpdate){exit 0}}}else{Toast 'Обновление' "Установлена актуальная версия $($u.Local)." 'OK'}}catch{Write-CcError -FunctionName 'UpdateNow' -Exception $_.Exception}})
 $pages['settings']=$settings
 $settings.Controls[0].BringToFront()
 
