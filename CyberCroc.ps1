@@ -19,13 +19,45 @@ $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Accounts.ps1')
 . (Join-Path $Tools 'Hardware.ps1')
 
-$cfg=Get-CcConfig
-if($cfg -isnot [hashtable]){
-    $normalized=@{}
-    try{foreach($p in $cfg.PSObject.Properties){$normalized[[string]$p.Name.ToUpperInvariant()]=[string]$p.Value}}catch{}
-    $cfg=$normalized
+function Get-CcStartupConfig {
+    param([string]$Path)
+    $result=@{}
+    try{
+        if(Test-Path -LiteralPath $Path){
+            foreach($raw in Get-Content -LiteralPath $Path -Encoding UTF8){
+                $line=$raw.Trim()
+                if(-not $line -or $line -match '^[#;]'){continue}
+                $eq=$line.IndexOf('=')
+                if($eq -lt 1){continue}
+                $key=$line.Substring(0,$eq).Trim().ToUpperInvariant()
+                $value=$line.Substring($eq+1).Trim()
+                $result[$key]=$value
+            }
+        }
+    }catch{
+        Write-CcError -FunctionName 'Get-CcStartupConfig' -Exception $_.Exception
+    }
+    return $result
 }
-$Version=(Get-Content (Join-Path $Root 'version.txt') -Raw).Trim()
+
+# Read startup configuration independently of the shared Core implementation.
+# This prevents an old/mismatched Core.ps1 from turning $cfg into a CIM object.
+$cfg=Get-CcStartupConfig (Join-Path $Root 'config.ini')
+if(-not $cfg.ContainsKey('THEME')){
+    $cfg['THEME']='dark'
+}
+$Version='0.0.0'
+try{
+    $versionFile=Join-Path $Root 'version.txt'
+    if(Test-Path -LiteralPath $versionFile){
+        $Version=(Get-Content -LiteralPath $versionFile -Raw -ErrorAction Stop).Trim()
+    }
+}catch{
+    Write-CcLog "version.txt read failed: $($_.Exception.Message)" 'WARN' 'Startup'
+}
+if([string]::IsNullOrWhiteSpace($Version)){
+    $Version='0.0.0'
+}
 
 # GitHub update settings. The application is fully portable: everything is resolved from $PSScriptRoot.
 $GithubRepo='Memaho24/CROC_PRO'
