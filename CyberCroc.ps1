@@ -3,6 +3,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $Root=$PSScriptRoot
+$Developer='Eduard'
 $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Core.ps1')
 . (Join-Path $Tools 'Accounts.ps1')
@@ -11,6 +12,7 @@ $cfg=Get-CcConfig
 $Version=(Get-Content (Join-Path $Root 'version.txt') -Raw).Trim()
 $ThemeName=if($cfg['THEME']){$cfg['THEME']}else{'dark'}
 $C=@{}
+$C.Border=[Drawing.Color]::FromArgb(57,255,20)
 function Set-Theme([string]$Name){
     $script:ThemeName=$Name
     if($Name -eq 'light'){$C.Bg=[Drawing.Color]::FromArgb(240,240,240);$C.Panel=[Drawing.Color]::White;$C.Control=[Drawing.Color]::White;$C.Fg=[Drawing.Color]::FromArgb(30,30,30);$C.Muted=[Drawing.Color]::Gray}
@@ -170,7 +172,7 @@ $appRun.Add_Click({$progress.Visible=$true;$progress.Style='Marquee';Run-AppTool
 # Backup/Cleanup/Logs
 $backup=New-Object Windows.Forms.TabPage;$backup.Text='Бэкап';$backup.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($backup);$bfp=New-Flow;$backup.Controls.Add($bfp);$backupBtn=New-Button 'Запустить бэкап';$bfp.Controls.Add($backupBtn)
 $cleanup=New-Object Windows.Forms.TabPage;$cleanup.Text='Очистка';$cleanup.Padding=New-Object Windows.Forms.Padding(14);[void]$tabs.TabPages.Add($cleanup);$cfp=New-Flow;$cleanup.Controls.Add($cfp);$cleanupBtn=New-Button 'Запустить очистку';$cfp.Controls.Add($cleanupBtn)
-function Run-HiddenCmd([string]$Name){try{$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+(Join-Path $Root $Name)+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' "$Name: $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception}}
+function Run-HiddenCmd([string]$Name){try{$p=Start-Process cmd.exe -ArgumentList @('/d','/c','"'+(Join-Path $Root $Name)+'"') -WindowStyle Hidden -Wait -PassThru;Toast 'CyberCroc' "${Name}: $($p.ExitCode)" $(if($p.ExitCode-eq 0){'OK'}else{'ERROR'})}catch{Write-CcError -FunctionName 'Run-HiddenCmd' -Exception $_.Exception}}
 $backupBtn.Add_Click({Run-HiddenCmd 'Backup.cmd'});$cleanupBtn.Add_Click({Run-HiddenCmd 'Cleanup.cmd'})
 $logs=New-Object Windows.Forms.TabPage;$logs.Text='Логи';$logs.Padding=New-Object Windows.Forms.Padding(8);[void]$tabs.TabPages.Add($logs)
 $ll=New-Object Windows.Forms.TableLayoutPanel;$ll.Dock='Fill';$ll.RowCount=2;$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));$ll.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,45)));$logs.Controls.Add($ll)
