@@ -198,7 +198,7 @@ $progress=New-Object Windows.Forms.ProgressBar;$progress.Style='Marquee';$progre
 $pages=@{};$navButtons=@{}
 function Clear-Content{$content.Controls.Clear()}
 function Add-MenuButton([string]$Key,[string]$Text){
-    $b=New-Button $Text 190 46;$b.TextAlign='MiddleLeft';$b.Padding=New-Object Windows.Forms.Padding(14,0,0,0);$menu.Controls.Add($b);$navButtons[$Key]=$b;$b.Add_Click({Show-Page $Key})
+    $b=New-Button $Text 190 46;$b.TextAlign='MiddleLeft';$b.Padding=New-Object Windows.Forms.Padding(14,0,0,0);$b.Tag=$Key;$menu.Controls.Add($b);$navButtons[$Key]=$b;$b.Add_Click({param($sender,$eventArgs) Show-Page ([string]$sender.Tag)})
 }
 function Show-Page([string]$Key){
     try{
