@@ -250,7 +250,10 @@ $script:GameCatalog=@()
 function Load-GameCatalog{
     try{
         $path=Join-Path $Root 'games.txt'
-        if(-not(Test-Path -LiteralPath $path)){throw "games.txt не найден: $path"}
+        if(-not(Test-Path -LiteralPath $path)){
+            Write-CcLog "games.txt not found: $path. Starting with empty local catalog." 'WARN' 'Load-GameCatalog'
+            $script:GameCatalog=@()
+        } else {
         foreach($raw in Get-Content -LiteralPath $path -Encoding UTF8){
             $line=$raw.Trim();if(-not $line -or $line -match '^[#;]'){continue}
             $c=@($line -split '\|',7);while($c.Count -lt 7){$c+=''}
@@ -258,6 +261,7 @@ function Load-GameCatalog{
             if(-not $launcher){$launcher=switch($source){'steam' {'Steam'} 'epic' {'Epic Games'} 'riot' {'Riot Games'} 'battle.net' {'Battle.net'} 'battle' {'Battle.net'} default {if($source){$source}else{'Other'}}}}
             $price=if($c[6].Trim()){$c[6].Trim()}else{'Бесплатно'}
             $script:GameCatalog += [pscustomobject]@{Name=$c[0].Trim();PathCheck=$c[1].Trim();Source=$source;Launcher=$launcher;AppID=$c[4].Trim();Price=$price}
+        }
         }
         try{$remoteGames=@(Update-CcGamesCatalogDaily);foreach($rg in $remoteGames){$existing=$script:GameCatalog|Where-Object{$_.Name -eq $rg.Name}|Select-Object -First 1;$mapped=[pscustomobject]@{Name=$rg.Name;PathCheck=$rg.InstallPath;Source=$rg.Source;Launcher=$rg.Launcher;AppID=$rg.AppId;Price='Бесплатно'};if($existing){$script:GameCatalog=@($script:GameCatalog|Where-Object{$_.Name -ne $rg.Name})+$mapped}else{$script:GameCatalog+=$mapped}}}catch{Write-CcError -FunctionName 'Load-RemoteGames' -Exception $_.Exception}
 if($script:GameCatalog.Count -eq 0){Write-CcLog 'games.txt пуст или отсутствует; каталог игр оставлен пустым.' 'WARN' 'Load-GameCatalog'}
