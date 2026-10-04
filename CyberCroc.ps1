@@ -23,6 +23,8 @@ $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Core.ps1')
 . (Join-Path $Tools 'Accounts.ps1')
 . (Join-Path $Tools 'Hardware.ps1')
+. (Join-Path $Tools 'Games.ps1')
+. (Join-Path $Tools 'Bar.ps1')
 
 try{
     [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
@@ -30,33 +32,9 @@ try{
     [AppDomain]::CurrentDomain.add_UnhandledException({param($sender,$args) if($args.ExceptionObject -is [Exception]){Write-CcError -FunctionName 'AppDomain.UnhandledException' -Exception $args.ExceptionObject}})
 }catch{}
 
-function Get-CcStartupConfig {
-    param([string]$Path)
-    $result=@{}
-    try{
-        if(Test-Path -LiteralPath $Path){
-            foreach($raw in Get-Content -LiteralPath $Path -Encoding UTF8){
-                $line=$raw.Trim()
-                if(-not $line -or $line -match '^[#;]'){continue}
-                $eq=$line.IndexOf('=')
-                if($eq -lt 1){continue}
-                $key=$line.Substring(0,$eq).Trim().ToUpperInvariant()
-                $value=$line.Substring($eq+1).Trim()
-                $result[$key]=$value
-            }
-        }
-    }catch{
-        Write-CcError -FunctionName 'Get-CcStartupConfig' -Exception $_.Exception
-    }
-    return $result
-}
+$cfg=Get-CcConfig
+if(-not $cfg.ContainsKey('THEME')){$cfg['THEME']='dark'}
 
-# Read startup configuration independently of the shared Core implementation.
-# This prevents an old/mismatched Core.ps1 from turning $cfg into a CIM object.
-$cfg=Get-CcStartupConfig (Join-Path $Root 'config.ini')
-if(-not $cfg.ContainsKey('THEME')){
-    $cfg['THEME']='dark'
-}
 $Version='0.0.0'
 try{
     $versionFile=Join-Path $Root 'version.txt'
