@@ -56,7 +56,7 @@ function Get-CcConfig {
         if($script:CcConfigCache -and -not $Refresh){return $script:CcConfigCache}
         if(-not(Test-Path -LiteralPath $Path)){ $example=Join-Path $script:CcRoot 'config.example.ini';if(Test-Path -LiteralPath $example){Copy-Item $example $Path -Force} }
         $script:CcConfigPath=$Path;$script:CcConfigCache=Read-CcIni -Path $Path
-        foreach($pair in @{'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM';'BAR_SHARE'='';'ADMIN_PASSWORD'='croc'}){if(-not $script:CcConfigCache.ContainsKey($pair.Key)){$script:CcConfigCache[$pair.Key]=$pair.Value}}
+        foreach($pair in @{'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM';'BAR_SHARE'='';'GAMES_SOURCE_URL'='';'ADMIN_PASSWORD'='croc'}){if(-not $script:CcConfigCache.ContainsKey($pair.Key)){$script:CcConfigCache[$pair.Key]=$pair.Value}}
         return $script:CcConfigCache
     } catch {Write-CcError -FunctionName 'Get-CcConfig' -Exception $_.Exception;return @{}}
 }
