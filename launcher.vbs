@@ -1,6 +1,6 @@
 Option Explicit
 
-Dim shell, fso, root, ps1, logDir, logFile, psExe, cmd, rc, proc
+Dim shell, fso, root, ps1, runner, logDir, logFile, psExe, cmd, rc, proc
 Dim stdoutText, stderrText, errLog, errText, userMsg
 
 Set shell = CreateObject("WScript.Shell")
@@ -8,6 +8,7 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 ps1 = fso.BuildPath(root, "CyberCroc.ps1")
+runner = fso.BuildPath(root, "LauncherRunner.ps1")
 logDir = fso.BuildPath(root, "logs")
 logFile = fso.BuildPath(logDir, "launcher.log")
 
@@ -29,23 +30,22 @@ End Sub
 
 LogLine "=== CyberCroc launcher started ==="
 LogLine "Root: " & root
+LogLine "PowerShell: " & shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
+LogLine "Script: " & ps1
 
 If Not fso.FileExists(ps1) Then
     LogLine "ERROR: CyberCroc.ps1 not found: " & ps1
-    MsgBox "CyberCroc.ps1 не найден." & vbCrLf & vbCrLf & ps1 & vbCrLf & vbCrLf & _
-           "Подробности: " & logFile, 16, "CyberCroc"
+    MsgBox "CyberCroc.ps1 не найден." & vbCrLf & vbCrLf & ps1, 16, "CyberCroc"
     WScript.Quit 1
 End If
 
-
-psExe = shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
-
-If Not fso.FileExists(psExe) Then
-    LogLine "ERROR: Windows PowerShell not found: " & psExe
-    MsgBox "Windows PowerShell 5.1 не найден." & vbCrLf & vbCrLf & psExe, 16, "CyberCroc"
+If Not fso.FileExists(runner) Then
+    LogLine "ERROR: LauncherRunner.ps1 not found: " & runner
+    MsgBox "LauncherRunner.ps1 не найден." & vbCrLf & vbCrLf & runner, 16, "CyberCroc"
     WScript.Quit 2
 End If
 
+psExe = shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
 On Error Resume Next
 shell.CurrentDirectory = root
 If Err.Number <> 0 Then
@@ -54,23 +54,18 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-LogLine "PowerShell: " & psExe
-LogLine "Script: " & ps1
-
-Dim q, psPath
+Dim q
 q = Chr(34)
-psPath = Replace(ps1, q, q & q)
-cmd = q & psExe & q & " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -Command " & _
-      q & "try { & " & q & psPath & q & " } catch { Write-Error $_; exit 1 }" & q
+cmd = q & psExe & q & " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & _
+      q & runner & q & " -ScriptPath " & q & ps1 & q
 
-LogLine "Starting PowerShell directly..."
+LogLine "Starting LauncherRunner.ps1..."
 
 On Error Resume Next
 Set proc = shell.Exec(cmd)
 If Err.Number <> 0 Then
     LogLine "ERROR: Failed to start PowerShell: " & Err.Description
-    MsgBox "Не удалось запустить CyberCroc." & vbCrLf & vbCrLf & _
-           Err.Description & vbCrLf & vbCrLf & "Лог: " & logFile, 16, "CyberCroc"
+    MsgBox "Не удалось запустить CyberCroc." & vbCrLf & vbCrLf & Err.Description, 16, "CyberCroc"
     WScript.Quit 3
 End If
 On Error GoTo 0
@@ -85,13 +80,11 @@ rc = proc.ExitCode
 
 If Len(stdoutText) > 0 Then LogLine "PowerShell stdout:" & vbCrLf & stdoutText
 If Len(stderrText) > 0 Then LogLine "PowerShell stderr:" & vbCrLf & stderrText
-
 LogLine "PowerShell exited with code: " & rc
 
 If rc <> 0 Then
     errLog = fso.BuildPath(logDir, "errors.log")
     errText = ""
-
     If fso.FileExists(errLog) Then
         On Error Resume Next
         Dim ef, allErr
@@ -105,11 +98,11 @@ If rc <> 0 Then
         End If
         On Error GoTo 0
     End If
-
     LogLine "Application error. errors.log tail:" & vbCrLf & errText
     userMsg = "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & "Код: " & rc & vbCrLf & vbCrLf
-    If Len(errText) > 0 Then userMsg = userMsg & "Последняя ошибка:" & vbCrLf & errText & vbCrLf & vbCrLf
-    userMsg = userMsg & "Лог запуска: " & logFile & vbCrLf & "Лог ошибок: " & errLog
+    If Len(stderrText) > 0 Then userMsg = userMsg & "PowerShell:" & vbCrLf & stderrText & vbCrLf & vbCrLf
+    If Len(errText) > 0 Then userMsg = userMsg & "Лог ошибок:" & vbCrLf & errText & vbCrLf & vbCrLf
+    userMsg = userMsg & "Лог запуска: " & logFile
     MsgBox userMsg, 16, "CyberCroc"
     WScript.Quit rc
 End If
