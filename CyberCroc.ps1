@@ -11,7 +11,7 @@ trap {
         $line = '[{0}] [FATAL] [{1}:{2}] {3} :: {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $scriptName, $lineNumber, $_.Exception.GetType().FullName, $_.Exception.Message
         Add-Content -LiteralPath (Join-Path $logDir 'errors.log') -Value ($line + "`r`nPosition: " + $position + "`r`nStack: " + $stack) -Encoding UTF8
     } catch {}
-    throw
+    exit 1
 }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -260,7 +260,7 @@ function Load-GameCatalog{
             $script:GameCatalog += [pscustomobject]@{Name=$c[0].Trim();PathCheck=$c[1].Trim();Source=$source;Launcher=$launcher;AppID=$c[4].Trim();Price=$price}
         }
         try{$remoteGames=@(Update-CcGamesCatalogDaily);foreach($rg in $remoteGames){$existing=$script:GameCatalog|Where-Object{$_.Name -eq $rg.Name}|Select-Object -First 1;$mapped=[pscustomobject]@{Name=$rg.Name;PathCheck=$rg.InstallPath;Source=$rg.Source;Launcher=$rg.Launcher;AppID=$rg.AppId;Price='Бесплатно'};if($existing){$script:GameCatalog=@($script:GameCatalog|Where-Object{$_.Name -ne $rg.Name})+$mapped}else{$script:GameCatalog+=$mapped}}}catch{Write-CcError -FunctionName 'Load-RemoteGames' -Exception $_.Exception}
-if($script:GameCatalog.Count -eq 0){throw 'games.txt пуст.'}
+if($script:GameCatalog.Count -eq 0){Write-CcLog 'games.txt пуст или отсутствует; каталог игр оставлен пустым.' 'WARN' 'Load-GameCatalog'}
         Write-CcLog "Game catalog loaded: $($script:GameCatalog.Count) items" 'OK' 'Load-GameCatalog'
     }catch{Write-CcError -FunctionName 'Load-GameCatalog' -Exception $_.Exception;throw}
 }
