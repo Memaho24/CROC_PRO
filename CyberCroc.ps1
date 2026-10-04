@@ -10,7 +10,10 @@ trap {
         $stack = if ($inv -and $inv.ScriptStackTrace) { $inv.ScriptStackTrace } else { $_.ScriptStackTrace }
         $line = '[{0}] [FATAL] [{1}:{2}] {3} :: {4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $scriptName, $lineNumber, $_.Exception.GetType().FullName, $_.Exception.Message
         Add-Content -LiteralPath (Join-Path $logDir 'errors.log') -Value ($line + "`r`nPosition: " + $position + "`r`nStack: " + $stack) -Encoding UTF8
-    } catch {}
+        Write-Error ($line + "`r`nPosition: " + $position + "`r`nStack: " + $stack)
+    } catch {
+        Write-Error ("CyberCroc fatal handler failed: " + $_.Exception.Message)
+    }
     exit 1
 }
 Add-Type -AssemblyName System.Windows.Forms
