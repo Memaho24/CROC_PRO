@@ -1,4 +1,4 @@
-﻿<## CyberCroc Games - SMB game catalog and patch management. PowerShell 5.1 compatible. ##>
+﻿<# CyberCroc Games - SMB game catalog and patch management. PowerShell 5.1 compatible.  #>
 Set-StrictMode -Version 2.0
 . (Join-Path $PSScriptRoot 'Core.ps1')
 function Get-CcGamesConfig { try { $cfg=Get-CcConfig; [pscustomobject]@{Share=[string]$cfg['GAMES_SHARE'];SourceUrl=[string]$cfg['GAMES_SOURCE_URL'];Cache=Join-Path $script:CcRoot 'games-cache.json'} } catch { Write-CcError -FunctionName 'Get-CcGamesConfig' -Exception $_.Exception; return [pscustomobject]@{Share='';Cache=(Join-Path $script:CcRoot 'games-cache.json')} } }
