@@ -8,6 +8,8 @@ $script:CcRoot = Split-Path -Parent $PSScriptRoot
 $script:CcLogDir = Join-Path $script:CcRoot 'logs'
 $script:CcLogFile = Join-Path $script:CcLogDir 'CyberCroc.log'
 $script:CcErrorFile = Join-Path $script:CcLogDir 'errors.log'
+$script:CcConfigCache = $null
+$script:CcConfigPath = Join-Path $script:CcRoot 'config.ini'
 
 function Initialize-CcCore {
     try { if (-not (Test-Path -LiteralPath $script:CcLogDir)) { New-Item -ItemType Directory -Path $script:CcLogDir -Force | Out-Null } } catch {}
@@ -49,13 +51,21 @@ function Read-CcIni {
     return $h
 }
 function Get-CcConfig {
-    param([string]$Path = (Join-Path $script:CcRoot 'config.ini'))
-    if(-not (Test-Path -LiteralPath $Path)){
-        $example=Join-Path $script:CcRoot 'config.example.ini'
-        if(Test-Path -LiteralPath $example){ Copy-Item $example $Path -Force }
-    }
-    return Read-CcIni -Path $Path
+    param([string]$Path = $script:CcConfigPath,[switch]$Refresh)
+    try {
+        if($script:CcConfigCache -and -not $Refresh){return $script:CcConfigCache}
+        if(-not(Test-Path -LiteralPath $Path)){ $example=Join-Path $script:CcRoot 'config.example.ini';if(Test-Path -LiteralPath $example){Copy-Item $example $Path -Force} }
+        $script:CcConfigPath=$Path;$script:CcConfigCache=Read-CcIni -Path $Path
+        foreach($pair in @{'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM';'BAR_SHARE'='';'ADMIN_PASSWORD'='croc'}){if(-not $script:CcConfigCache.ContainsKey($pair.Key)){$script:CcConfigCache[$pair.Key]=$pair.Value}}
+        return $script:CcConfigCache
+    } catch {Write-CcError -FunctionName 'Get-CcConfig' -Exception $_.Exception;return @{}}
 }
+function Save-CcConfig([hashtable]$Config,[string]$Path=$script:CcConfigPath){
+    try{$lines=@();foreach($key in $Config.Keys|Sort-Object){$lines+=("$key=$($Config[$key])")};Set-Content -LiteralPath $Path -Value $lines -Encoding UTF8;$script:CcConfigCache=$Config;return $true}catch{Write-CcError -FunctionName 'Save-CcConfig' -Exception $_.Exception;return $false}
+}
+function Protect-CcSecret([string]$PlainText){try{if($null -eq $PlainText){return ''};return (ConvertTo-SecureString $PlainText -AsPlainText -Force|ConvertFrom-SecureString)}catch{Write-CcError -FunctionName 'Protect-CcSecret' -Exception $_.Exception;return ''}}
+function Unprotect-CcSecret([string]$CipherText){try{if([string]::IsNullOrWhiteSpace($CipherText)){return ''};$sec=ConvertTo-SecureString $CipherText;$b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec);try{return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b)}}catch{Write-CcError -FunctionName 'Unprotect-CcSecret' -Exception $_.Exception;return ''}}
+function Test-CcAdminPassword([string]$Password){try{$cfg=Get-CcConfig;if([string]::IsNullOrWhiteSpace([string]$cfg['ADMIN_PASSWORD'])){return $false};return [string]::Equals($Password,[string]$cfg['ADMIN_PASSWORD'],[StringComparison]::OrdinalIgnoreCase)}catch{Write-CcError -FunctionName 'Test-CcAdminPassword' -Exception $_.Exception;return $false}}
 function Expand-CcPath([string]$Path) {
     try { if([string]::IsNullOrWhiteSpace($Path)){return ''}; return [Environment]::ExpandEnvironmentVariables($Path.Trim().Trim('"')) } catch { Write-CcError -FunctionName 'Expand-CcPath' -Exception $_.Exception; return '' }
 }
