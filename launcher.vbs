@@ -57,8 +57,11 @@ On Error GoTo 0
 LogLine "PowerShell: " & psExe
 LogLine "Script: " & ps1
 
-cmd = """" & psExe & """" & _
-      " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & """"
+Dim q, psPath
+q = Chr(34)
+psPath = Replace(ps1, q, q & q)
+cmd = q & psExe & q & " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -Command " & _
+      q & "try { & " & q & psPath & q & " } catch { Write-Error $_; exit 1 }" & q
 
 LogLine "Starting PowerShell directly..."
 
