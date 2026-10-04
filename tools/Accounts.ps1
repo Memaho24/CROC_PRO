@@ -15,47 +15,10 @@ function Initialize-CcAccounts {
     } catch { Write-CcError -FunctionName 'Initialize-CcAccounts' -Exception $_.Exception }
 }
 
-function Protect-CcSecret {
-    param([string]$PlainText)
-    try {
-        if ($null -eq $PlainText) { return '' }
-        return (ConvertTo-SecureString $PlainText -AsPlainText -Force | ConvertFrom-SecureString)
-    } catch { Write-CcError -FunctionName 'Protect-CcSecret' -Exception $_.Exception; return '' }
-}
-
-function Unprotect-CcSecret {
-    param([string]$CipherText)
-    try {
-        if ([string]::IsNullOrWhiteSpace($CipherText)) { return '' }
-        $sec = ConvertTo-SecureString $CipherText
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-        try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    } catch { Write-CcError -FunctionName 'Unprotect-CcSecret' -Exception $_.Exception; return '' }
-}
-
 function Get-CcAccountsSharePath {
-    try {
-        $cfgFile = Join-Path $script:CcRoot 'config.ini'
-        if (-not (Test-Path -LiteralPath $cfgFile)) { return '' }
-
-        $share = ''
-        foreach ($line in Get-Content -LiteralPath $cfgFile -Encoding UTF8) {
-            $trimmed = $line.Trim()
-            if ($trimmed -match '^ACCOUNTS_SHARE=(.*)$') {
-                $share = $Matches[1].Trim()
-                break
-            }
-        }
-
-        if ([string]::IsNullOrWhiteSpace($share)) { return '' }
-        return (Join-Path $share 'accounts.json')
-    } catch {
-        Write-CcError -FunctionName 'Get-CcAccountsSharePath' -Exception $_.Exception
-        return ''
-    }
+    try { $cfg=Get-CcConfig;$share=[string]$cfg['ACCOUNTS_SHARE'];if([string]::IsNullOrWhiteSpace($share)){return ''};return (Join-Path $share 'accounts.json') }
+    catch { Write-CcError -FunctionName 'Get-CcAccountsSharePath' -Exception $_.Exception;return '' }
 }
-
 function Get-CcAccounts {
     try {
         Initialize-CcAccounts
