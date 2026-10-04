@@ -1,11 +1,14 @@
 Option Explicit
 
-Dim shell, fso, root, ps1, logDir, logFile, psExe, cmd, rc, proc, stdoutText, stderrText
+Dim shell, fso, root, ps1, preflight, logDir, logFile, psExe, cmd, rc, proc
+Dim stdoutText, stderrText, errLog, errText, userMsg
+
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 ps1 = fso.BuildPath(root, "CyberCroc.ps1")
+preflight = fso.BuildPath(root, "Preflight.ps1")
 logDir = fso.BuildPath(root, "logs")
 logFile = fso.BuildPath(logDir, "launcher.log")
 
@@ -35,6 +38,10 @@ If Not fso.FileExists(ps1) Then
     WScript.Quit 1
 End If
 
+If Not fso.FileExists(preflight) Then
+    LogLine "WARNING: Preflight.ps1 not found: " & preflight
+End If
+
 psExe = shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 If Not fso.FileExists(psExe) Then
@@ -51,41 +58,41 @@ If Err.Number <> 0 Then
 End If
 On Error GoTo 0
 
-' Run PowerShell directly. CyberCroc itself writes detailed errors to logs/errors.log.
-' Do not pipe PowerShell output through CMD: PS 5.1 output is Unicode and CMD code pages corrupt Cyrillic.
+LogLine "PowerShell: " & psExe
+LogLine "Script: " & ps1
+
+If fso.FileExists(preflight) Then
+    LogLine "Starting PowerShell syntax preflight..."
+
+    Dim preCmd, preProc, preErr, preRc
+    preCmd = """" & psExe & """" & " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File """ & preflight & """ -ScriptPath """ & ps1 & """"
+
+    On Error Resume Next
+    Set preProc = shell.Exec(preCmd)
+    If Err.Number = 0 Then
+        Do While preProc.Status = 0
+            WScript.Sleep 50
+        Loop
+        preErr = preProc.StdOut.ReadAll
+        If Len(preErr) > 0 Then LogLine "Preflight output:" & vbCrLf & preErr
+        preRc = preProc.ExitCode
+        If preRc <> 0 Then
+            LogLine "PowerShell syntax preflight FAILED with code: " & preRc
+            MsgBox "Ошибка синтаксиса CyberCroc.ps1." & vbCrLf & vbCrLf & preErr & vbCrLf & _
+                   "Лог: " & logFile, 16, "CyberCroc"
+            WScript.Quit preRc
+        End If
+    Else
+        LogLine "WARNING: Preflight could not start: " & Err.Description
+        Err.Clear
+    End If
+    On Error GoTo 0
+End If
+
 cmd = """" & psExe & """" & _
       " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & ps1 & """"
 
-LogLine "PowerShell: " & psExe
-LogLine "Script: " & ps1
-LogLine "Starting PowerShell directly (no CMD redirection)..."
-
-' Preflight PowerShell parser check. This catches syntax errors before the GUI starts.
-Dim checkCmd, checkProc, checkOut, checkErr, parseRc
-checkCmd = """" & psExe & """" & " -NoLogo -NoProfile -NonInteractive -Command " & _
-           """" & "$e=@();[System.Management.Automation.Language.Parser]::ParseFile('" & Replace(ps1,"'","''") & "',[ref]$null,[ref]$e)|Out-Null;if($e.Count -gt 0){$e|ForEach-Object{Write-Output ('PARSE: '+$_.Message+' at line '+$_.Extent.StartLineNumber+', column '+$_.Extent.StartColumnNumber)};exit 10}else{exit 0}""""
-On Error Resume Next
-Set checkProc = shell.Exec(checkCmd)
-If Err.Number = 0 Then
-    Do While checkProc.Status = 0
-        WScript.Sleep 50
-    Loop
-    checkOut = checkProc.StdOut.ReadAll
-    checkErr = checkProc.StdErr.ReadAll
-    parseRc = checkProc.ExitCode
-    If Len(checkOut) > 0 Then LogLine "PowerShell preflight stdout:" & vbCrLf & checkOut
-    If Len(checkErr) > 0 Then LogLine "PowerShell preflight stderr:" & vbCrLf & checkErr
-    If parseRc <> 0 Then
-        LogLine "PowerShell syntax preflight FAILED with code: " & parseRc
-        MsgBox "Ошибка синтаксиса CyberCroc.ps1." & vbCrLf & vbCrLf & checkOut & vbCrLf & _
-               "Лог: " & logFile, 16, "CyberCroc"
-        WScript.Quit parseRc
-    End If
-Else
-    LogLine "WARNING: PowerShell parser preflight could not start: " & Err.Description
-    Err.Clear
-End If
-On Error GoTo 0
+LogLine "Starting PowerShell directly..."
 
 On Error Resume Next
 Set proc = shell.Exec(cmd)
@@ -105,19 +112,15 @@ stdoutText = proc.StdOut.ReadAll
 stderrText = proc.StdErr.ReadAll
 rc = proc.ExitCode
 
-If Len(stdoutText) > 0 Then
-    LogLine "PowerShell stdout:" & vbCrLf & stdoutText
-End If
-If Len(stderrText) > 0 Then
-    LogLine "PowerShell stderr:" & vbCrLf & stderrText
-End If
+If Len(stdoutText) > 0 Then LogLine "PowerShell stdout:" & vbCrLf & stdoutText
+If Len(stderrText) > 0 Then LogLine "PowerShell stderr:" & vbCrLf & stderrText
 
 LogLine "PowerShell exited with code: " & rc
 
 If rc <> 0 Then
-    Dim errLog, errText
     errLog = fso.BuildPath(logDir, "errors.log")
     errText = ""
+
     If fso.FileExists(errLog) Then
         On Error Resume Next
         Dim ef, allErr
@@ -131,8 +134,8 @@ If rc <> 0 Then
         End If
         On Error GoTo 0
     End If
+
     LogLine "Application error. errors.log tail:" & vbCrLf & errText
-    Dim userMsg
     userMsg = "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & "Код: " & rc & vbCrLf & vbCrLf
     If Len(errText) > 0 Then userMsg = userMsg & "Последняя ошибка:" & vbCrLf & errText & vbCrLf & vbCrLf
     userMsg = userMsg & "Лог запуска: " & logFile & vbCrLf & "Лог ошибок: " & errLog
