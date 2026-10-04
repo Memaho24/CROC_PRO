@@ -458,7 +458,7 @@ Add-MenuButton 'settings' 'НАСТРОЙКИ'
 
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
 $logTimer=New-Object Windows.Forms.Timer;$logTimer.Interval=2000;$logTimer.Add_Tick({try{if($pages.ContainsKey('logs') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['logs']){Refresh-Logs}}catch{}});$logTimer.Start()
-$gamesTimer=New-Object Windows.Forms.Timer;$gamesTimer.Interval=3600000;$gamesTimer.Add_Tick({try{Update-CcGamesCatalogDaily|Out-Null;Refresh-GameCatalog;Write-CcLog 'Daily games catalog refresh checked' 'INFO' 'GamesTimer'}catch{Write-CcError -FunctionName 'GamesTimer' -Exception $_.Exception}});$gamesTimer.Start()
+$gamesTimer=New-Object Windows.Forms.Timer;$gamesTimer.Interval=3600000;$gamesTimer.Add_Tick({try{Update-CcGamesCatalogDaily|Out-Null;Refresh-GameCatalog;Write-CcLog 'Daily games catalog refresh checked' 'INFO' 'GamesTimer'}catch{Write-CcError -FunctionName 'GamesTimer' -Exception $_.Exception}});$gamesTimer.Start();$barTimer=New-Object Windows.Forms.Timer;$barTimer.Interval=300000;$barTimer.Add_Tick({try{if($pages.ContainsKey('bar') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['bar']){Refresh-BarPage;Write-CcLog 'Bar catalog refresh checked' 'INFO' 'BarTimer'}}catch{Write-CcError -FunctionName 'BarTimer' -Exception $_.Exception}});$barTimer.Start()
 Write-CcLog 'CyberCroc GUI initialized' 'OK' 'Startup'
 $syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
 try{Sync-CcAccounts Pull|Out-Null}catch{}
