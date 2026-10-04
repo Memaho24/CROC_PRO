@@ -2,6 +2,20 @@
 Set-StrictMode -Version 2.0
 . (Join-Path $PSScriptRoot 'Core.ps1')
 function Get-CcBarConfig { $cfg=Get-CcConfig;[pscustomobject]@{SheetId=if($cfg['BAR_SHEET_ID']){[string]$cfg['BAR_SHEET_ID']}else{'1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM'};Share=[string]$cfg['BAR_SHARE'];Cache=Join-Path $script:CcRoot 'bar-menu.json';Orders=if($cfg['BAR_SHARE']){Join-Path $cfg['BAR_SHARE'] 'bar-orders.json'}else{Join-Path $script:CcRoot 'bar-orders.json'};Stock=if($cfg['BAR_SHARE']){Join-Path $cfg['BAR_SHARE'] 'bar-stock.json'}else{Join-Path $script:CcRoot 'bar-stock.json'};Balances=if($cfg['BAR_SHARE']){Join-Path $cfg['BAR_SHARE'] 'bar-balances.json'}else{Join-Path $script:CcRoot 'bar-balances.json'}} }
+function Resolve-CcBarSheetUrl([string]$Url) {
+    try {
+        if([string]::IsNullOrWhiteSpace($Url)){return ''}
+        $u=$Url.Trim()
+        if($u -match 'export\\?format=csv' -or $u -match 'gviz/tq'){return $u}
+        if($u -match 'docs\\.google\\.com/spreadsheets/d/([^/]+)'){
+            $id=$Matches[1];$gid=''
+            if($u -match '[?&]gid=(\\d+)'){$gid=$Matches[1]}
+            if($gid){return "https://docs.google.com/spreadsheets/d/$id/export?format=csv&gid=$gid"}
+            return "https://docs.google.com/spreadsheets/d/$id/export?format=csv"
+        }
+        return $u
+    } catch { Write-CcLog "Google Sheets URL parse failed: $($_.Exception.Message)" 'WARN' 'Resolve-CcBarSheetUrl'; return $Url }
+}
 function ConvertFrom-CcCsvLine([string]$Line) { $out=@();$cur='';$quote=$false;foreach($ch in $Line.ToCharArray()){if($ch -eq '"'){$quote=-not $quote}elseif($ch -eq ',' -and -not $quote){$out+=$cur;$cur=''}else{$cur+=$ch}};$out+=$cur;return @($out|ForEach-Object{$_.Trim().Trim('"')}) }
 function Get-CcBarConfig {
     $cfg=Get-CcConfig;$share=[string]$cfg['BAR_SHARE'];$shareOk=$false;if($share){try{$shareOk=Test-Path -LiteralPath $share -ErrorAction Stop}catch{$shareOk=$false}};$root=$script:CcRoot
@@ -15,7 +29,7 @@ function Get-CcBarSeed {
 }
 function Save-CcBarLocalSeed {try{$c=Get-CcBarConfig;if(Test-Path -LiteralPath $c.Cache){return};$items=@(Get-CcBarSeed);$items|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $c.Cache -Encoding UTF8;$stock=@{};foreach($x in $items){$stock[$x.Sku]=[decimal]$x.Stock};$stock|ConvertTo-Json|Set-Content -LiteralPath $c.Stock -Encoding UTF8;Write-CcLog "Bar local seed created: $($items.Count) items" 'OK' 'Save-CcBarLocalSeed'}catch{Write-CcError -FunctionName 'Save-CcBarLocalSeed' -Exception $_.Exception}}
 function Get-CcBarMenu {
- try{$c=Get-CcBarConfig;Save-CcBarLocalSeed;$uri=if($c.SheetUrl){$c.SheetUrl}elseif($c.SheetId){"https://docs.google.com/spreadsheets/d/$($c.SheetId)/export?format=csv"}else{''};if($uri){try{$csv=(Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop).Content;$rows=@($csv -split '?
+ try{$c=Get-CcBarConfig;Save-CcBarLocalSeed;$uri=if($c.SheetUrl){Resolve-CcBarSheetUrl $c.SheetUrl}elseif($c.SheetId){"https://docs.google.com/spreadsheets/d/$($c.SheetId)/export?format=csv"}else{''};if($uri){try{$csv=(Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop).Content;$rows=@($csv -split '?
 '|Where-Object{$_.Trim()});if($rows.Count -ge 2){$head=ConvertFrom-CcCsvLine $rows[0];$result=@();for($i=1;$i -lt $rows.Count;$i++){$v=ConvertFrom-CcCsvLine $rows[$i];$o=@{};for($j=0;$j -lt $head.Count;$j++){if($j -lt $v.Count){$o[$head[$j].Trim().ToLowerInvariant()]=$v[$j]}};if($o['name']){$result+=[pscustomobject]@{Name=[string]$o['name'];Price=[decimal]$(if($o['price']){$o['price']}else{0});Sku=[string]$(if($o['sku']){$o['sku']}else{$o['name']});StockItem=[string]$o['name'];StockQty=1;Stock=[decimal]$(if($o['stock']){$o['stock']}elseif($o['stockqty']){$o['stockqty']}elseif($o['наличие']){$o['наличие']}else{0});Category=[string]$(if($o['category']){$o['category']}else{'Бар'});Available=if($o.ContainsKey('available')){[string]$o['available'] -notin @('0','false','нет')}else{$true}}}};if($result.Count -gt 0){$result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $c.Cache -Encoding UTF8;Write-CcLog "Bar menu synchronized from Google Sheets: $($result.Count) items" 'OK' 'Get-CcBarMenu'}}}catch{Write-CcLog "Google Sheets unavailable, using local bar cache: $($_.Exception.Message)" 'WARN' 'Get-CcBarMenu'}};$result=@();if(Test-Path -LiteralPath $c.Cache){$result=@(Get-Content -LiteralPath $c.Cache -Raw|ConvertFrom-Json)};if(-not$result -or $result.Count -eq 0){$result=@(Get-CcBarSeed)};if(Test-Path -LiteralPath $c.Prices){$ov=Get-Content -LiteralPath $c.Prices -Raw|ConvertFrom-Json;foreach($m in $result){if($m.Sku -and $ov.PSObject.Properties.Name -contains $m.Sku){$m.Price=[decimal]$ov.($m.Sku)}}};return $result
  }catch{Write-CcError -FunctionName 'Get-CcBarMenu' -Exception $_.Exception;return @(Get-CcBarSeed)}}
 function Get-CcBarStock {try{$c=Get-CcBarConfig;Save-CcBarLocalSeed;if(-not(Test-Path -LiteralPath $c.Stock)){return @{}};$j=Get-Content -LiteralPath $c.Stock -Raw|ConvertFrom-Json;$h=@{};foreach($p in $j.PSObject.Properties){$h[$p.Name]=[decimal]$p.Value};return $h}catch{Write-CcError -FunctionName 'Get-CcBarStock' -Exception $_.Exception;return @{}}}
