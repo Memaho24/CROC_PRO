@@ -23,9 +23,70 @@ function Get-CcBarConfig {
 }
 function ConvertFrom-CcCsvLine([string]$Line) {$out=@();$cur='';$quote=$false;foreach($ch in $Line.ToCharArray()){if($ch -eq '"'){$quote=-not $quote}elseif($ch -eq ',' -and -not $quote){$out+=$cur;$cur=''}else{$cur+=$ch}};$out+=$cur;return @($out|ForEach-Object{$_.Trim().Trim('"')})}
 function Get-CcBarSeed {
-    $rows=@(
-      @('Adrenaline 0,449л',0,32),@('Aqua Minerale 0,5л',0,0),@('BonAqua 0,5л',0,0),@('BURN 0,449л',195,38),@('Chillout 0,45л',0,5),@('Cola fresh bar 0,45л',0,8),@('Flash Up Energy 0,45л',0,51),@('Fresh bar 0,45л',0,37),@('Gorilla 0,45л',0,42),@('Lipton 0,5л',0,11),@('Lit energy 0,45л',0,20),@('Rich чай 0,5л',0,38),@('Tornado 0,45л',110,90),@('X-TURBO 0,45',0,4),@('Вода Sensia Fresh',0,32),@('Вода Хрустальная 0,5л',0,3),@('Добрый 0,5л',0,72),@('ПАЛПИ 0,45л',0,32),@('Tornado 1л',0,5),@('Черноголовка 1л',0,7),@('Fresh bar 1,5л',0,9),@('Cheetos 50г',0,19),@('Lay’s 140г',0,9),@('Lay’s 70г',0,5),@('Lay’s из печи 85г',0,17),@('Хрустим Багет 60г',0,0),@('Хруст Nut 80 г',0,6),@('Choco pie',40,40),@('BOUNTY',0,0),@('Bounty Trio',0,3),@('Mars',0,0),@('Mars Max',0,0),@('SNICKERS',0,0),@('Snickers Super',0,3),@('TWIX',0,0),@('TWIX Xtra',0,0),@('Гудмикс 40г',0,0),@('Любятово 50г',0,19),@('Мармелад "GORILLA" 60г',140,9),@('Бельмеши 300гр',0,11),@('Круггетсы 200г',0,6),@('Хотстеры 250гр',0,10),@('Чебупели с ветчиной и сыром 240гр',0,11),@('Чебупели сочные с мясом 240гр',0,11),@('Чебупицца 250гр',0,14),@('Burn',195,38),@('Tornado',110,90),@('Chitos',110,0),@('Chocopai',40,40),@('Gorila en',150,0),@('Gorila мармелад',140,9))
-    return @($rows|ForEach-Object{[pscustomobject]@{Name=$_[0];Price=[decimal]$($_[1]);Sku=([string]$_[0]).ToLowerInvariant().Replace(' ','_');StockItem=$_[0];StockQty=1;Category='Бар';Available=$true;Stock=[decimal]$($_[2])}})
+    $rows=@()
+    $rows+=,@('Adrenaline 0,449л',0,32)
+    $rows+=,@('Aqua Minerale 0,5л',0,0)
+    $rows+=,@('BonAqua 0,5л',0,0)
+    $rows+=,@('BURN 0,449л',195,38)
+    $rows+=,@('Chillout 0,45л',0,5)
+    $rows+=,@('Cola fresh bar 0,45л',0,8)
+    $rows+=,@('Flash Up Energy 0,45л',0,51)
+    $rows+=,@('Fresh bar 0,45л',0,37)
+    $rows+=,@('Gorilla 0,45л',0,42)
+    $rows+=,@('Lipton 0,5л',0,11)
+    $rows+=,@('Lit energy 0,45л',0,20)
+    $rows+=,@('Rich чай 0,5л',0,38)
+    $rows+=,@('Tornado 0,45л',110,90)
+    $rows+=,@('X-TURBO 0,45',0,4)
+    $rows+=,@('Вода Sensia Fresh',0,32)
+    $rows+=,@('Вода Хрустальная 0,5л',0,3)
+    $rows+=,@('Добрый 0,5л',0,72)
+    $rows+=,@('ПАЛПИ 0,45л',0,32)
+    $rows+=,@('Tornado 1л',0,5)
+    $rows+=,@('Черноголовка 1л',0,7)
+    $rows+=,@('Fresh bar 1,5л',0,9)
+    $rows+=,@('Cheetos 50г',0,19)
+    $rows+=,@('Lays 140г',0,9)
+    $rows+=,@('Lays 70г',0,5)
+    $rows+=,@('Lays из печи 85г',0,17)
+    $rows+=,@('Хрустим Багет 60г',0,0)
+    $rows+=,@('Хруст Nut 80 г',0,6)
+    $rows+=,@('Choco pie',40,40)
+    $rows+=,@('BOUNTY',0,0)
+    $rows+=,@('Bounty Trio',0,3)
+    $rows+=,@('Mars',0,0)
+    $rows+=,@('Mars Max',0,0)
+    $rows+=,@('SNICKERS',0,0)
+    $rows+=,@('Snickers Super',0,3)
+    $rows+=,@('TWIX',0,0)
+    $rows+=,@('TWIX Xtra',0,0)
+    $rows+=,@('Гудмикс 40г',0,0)
+    $rows+=,@('Любятово 50г',0,19)
+    $rows+=,@('Мармелад GORILLA 60г',140,9)
+    $rows+=,@('Бельмеши 300гр',0,11)
+    $rows+=,@('Круггетсы 200г',0,6)
+    $rows+=,@('Хотстеры 250гр',0,10)
+    $rows+=,@('Чебупели с ветчиной и сыром 240гр',0,11)
+    $rows+=,@('Чебупели сочные с мясом 240гр',0,11)
+    $rows+=,@('Чебупицца 250гр',0,14)
+    $rows+=,@('Burn',195,38)
+    $rows+=,@('Tornado',110,90)
+    $rows+=,@('Chitos',110,0)
+    $rows+=,@('Chocopai',40,40)
+    $rows+=,@('Gorila en',150,0)
+    $rows+=,@('Gorila мармелад',140,9)
+    return @($rows | ForEach-Object {
+        [pscustomobject]@{
+            Name=$_[0]
+            Price=[decimal]$($_[1])
+            Sku=([string]$_[0]).ToLowerInvariant().Replace(' ','_')
+            StockItem=$_[0]
+            StockQty=1
+            Category='Бар'
+            Available=$true
+            Stock=[decimal]$($_[2])
+        }
+    })
 }
 function Save-CcBarLocalSeed {try{$c=Get-CcBarConfig;if(Test-Path -LiteralPath $c.Cache){return};$items=@(Get-CcBarSeed);$items|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $c.Cache -Encoding UTF8;$stock=@{};foreach($x in $items){$stock[$x.Sku]=[decimal]$x.Stock};$stock|ConvertTo-Json|Set-Content -LiteralPath $c.Stock -Encoding UTF8;Write-CcLog "Bar local seed created: $($items.Count) items" 'OK' 'Save-CcBarLocalSeed'}catch{Write-CcError -FunctionName 'Save-CcBarLocalSeed' -Exception $_.Exception}}
 function Get-CcBarMenu {
