@@ -218,7 +218,7 @@ function Get-CcSteamId64 {
             }
         }
 
-        $first = [regex]::Match($text,'"(d{17})"')
+        $first = [regex]::Match($text,'"(\d{17})"')
         if ($first.Success) { return $first.Groups[1].Value }
         return ''
     } catch {
