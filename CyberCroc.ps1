@@ -156,6 +156,7 @@ function New-Flow([string]$Direction='LeftToRight'){
     $p=New-Object Windows.Forms.FlowLayoutPanel;$p.Dock='Fill';$p.AutoScroll=$true;$p.WrapContents=$true;$p.Padding=New-Object Windows.Forms.Padding(18);$p.FlowDirection=$Direction;$p.BackColor=$C.Bg;return $p
 }
 function Toast($Title,$Message,$Level='INFO'){Show-CcToast $Title $Message $Level}
+function Request-CcAdminAccess{try{$d=New-Object Windows.Forms.Form;$d.Text='Требуется пароль';$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(420,180);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg;$l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=2;$d.Controls.Add($l);[void]$l.Controls.Add((New-Label 'Пароль администратора'),0,0);$p=New-Object Windows.Forms.TextBox;$p.UseSystemPasswordChar=$true;$p.Dock='Fill';Apply-ControlTheme $p;$l.Controls.Add($p,1,0);$ok=New-Button 'ПРОДОЛЖИТЬ' 150 50;$ok.Add_Click({if(Test-CcAdminPassword $p.Text){$d.DialogResult=[Windows.Forms.DialogResult]::OK;$d.Close()}else{[void][Windows.Forms.MessageBox]::Show('Неверный пароль.','CyberCroc',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Warning)}});$l.Controls.Add($ok,1,1);return ([void]$d.ShowDialog($form) -eq $true -or $d.DialogResult -eq [Windows.Forms.DialogResult]::OK)}catch{Write-CcError -FunctionName 'Request-CcAdminAccess' -Exception $_.Exception;return $false}}
 function Show-CcErrorPopup([string]$Title,[System.Exception]$Exception){$msg=if($Exception){$Exception.Message}else{'Неизвестная ошибка.'};try{Write-CcError -FunctionName $Title -Exception $Exception}catch{};try{[void][Windows.Forms.MessageBox]::Show("Операция не выполнена.`n`n$msg`n`nПодробности: logs\\errors.log",'CyberCroc — ошибка',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Error)}catch{}}
 function Apply-ControlTheme([Windows.Forms.Control]$x){
     try{
@@ -258,7 +259,8 @@ function Load-GameCatalog{
             $price=if($c[6].Trim()){$c[6].Trim()}else{'Бесплатно'}
             $script:GameCatalog += [pscustomobject]@{Name=$c[0].Trim();PathCheck=$c[1].Trim();Source=$source;Launcher=$launcher;AppID=$c[4].Trim();Price=$price}
         }
-        if($script:GameCatalog.Count -eq 0){throw 'games.txt пуст.'}
+        try{$remoteGames=@(Update-CcGamesCatalogDaily);foreach($rg in $remoteGames){$existing=$script:GameCatalog|Where-Object{$_.Name -eq $rg.Name}|Select-Object -First 1;$mapped=[pscustomobject]@{Name=$rg.Name;PathCheck=$rg.InstallPath;Source=$rg.Source;Launcher=$rg.Launcher;AppID=$rg.AppId;Price='Бесплатно'};if($existing){$script:GameCatalog=@($script:GameCatalog|Where-Object{$_.Name -ne $rg.Name})+$mapped}else{$script:GameCatalog+=$mapped}}}catch{Write-CcError -FunctionName 'Load-RemoteGames' -Exception $_.Exception}
+if($script:GameCatalog.Count -eq 0){throw 'games.txt пуст.'}
         Write-CcLog "Game catalog loaded: $($script:GameCatalog.Count) items" 'OK' 'Load-GameCatalog'
     }catch{Write-CcError -FunctionName 'Load-GameCatalog' -Exception $_.Exception;throw}
 }
@@ -403,7 +405,7 @@ $shareLabel=New-Label 'ПАПКА ОБНОВЛЕНИЙ' 11 'Bold';$shareLabel.Lo
 $share=New-Object Windows.Forms.TextBox;$share.Text=$cfg['UPDATE_SHARE'];$share.Width=690;$share.Location=New-Object Drawing.Point(18,52);$share.BackColor=$C.Control;$share.ForeColor=$C.Fg;$shareBox.Controls.Add($share)
 $saveSettings=New-Button 'Сохранить настройки' 240 60;$checkUpdate=New-Button 'Проверить обновление' 240 60;$setBody.Controls.Add($saveSettings);$setBody.Controls.Add($checkUpdate)
 $theme.Add_SelectedIndexChanged({Set-Theme $theme.Text;Apply-Theme})
-$saveSettings.Add_Click({try{$cfg['THEME']=$theme.Text;$cfg['UPDATE_SHARE']=$share.Text;$lines=@();foreach($k in $cfg.Keys){$lines+=($k+'='+$cfg[$k])};Set-Content (Join-Path $Root 'config.ini') ($lines -join [Environment]::NewLine) -Encoding UTF8;Apply-Theme;Toast 'Настройки' 'Настройки сохранены.' 'OK'}catch{Write-CcError -FunctionName 'SaveSettings' -Exception $_.Exception}})
+$saveSettings.Add_Click({try{if(-not(Request-CcAdminAccess)){return};$cfg['THEME']=$theme.Text;$cfg['UPDATE_SHARE']=$share.Text;if(-not(Save-CcConfig $cfg)){throw 'Не удалось сохранить config.ini'};Apply-Theme;Toast 'Настройки' 'Настройки сохранены.' 'OK'}catch{Write-CcError -FunctionName 'SaveSettings' -Exception $_.Exception;Show-CcErrorPopup 'Настройки' $_.Exception}})
 $checkUpdate.Add_Click({try{$u=Test-CcGithubUpdate;if(-not $u){Toast 'Обновление' 'GitHub сейчас недоступен. Проверьте интернет.' 'INFO';return};if($u.Available){$answer=[System.Windows.Forms.MessageBox]::Show("Доступна версия $($u.Remote). Установлена $($u.Local).`r`n`r`nОбновить сейчас?",'CyberCroc — обновление',[System.Windows.Forms.MessageBoxButtons]::YesNo,[System.Windows.Forms.MessageBoxIcon]::Information);if($answer -eq [System.Windows.Forms.DialogResult]::Yes){if(Start-CcGithubUpdate){exit 0}}}else{Toast 'Обновление' "Установлена актуальная версия $($u.Local)." 'OK'}}catch{Write-CcError -FunctionName 'UpdateNow' -Exception $_.Exception}})
 $pages['settings']=$settings
 $settings.Controls[0].BringToFront()
@@ -432,6 +434,7 @@ Add-MenuButton 'settings' 'НАСТРОЙКИ'
 
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
 $logTimer=New-Object Windows.Forms.Timer;$logTimer.Interval=2000;$logTimer.Add_Tick({try{if($pages.ContainsKey('logs') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['logs']){Refresh-Logs}}catch{}});$logTimer.Start()
+$gamesTimer=New-Object Windows.Forms.Timer;$gamesTimer.Interval=3600000;$gamesTimer.Add_Tick({try{if((Get-Date).Hour -eq 4){Update-CcGamesCatalogDaily|Out-Null;Refresh-GameCatalog;Write-CcLog 'Daily games catalog refresh completed' 'OK' 'GamesTimer'}}catch{Write-CcError -FunctionName 'GamesTimer' -Exception $_.Exception}});$gamesTimer.Start()
 Write-CcLog 'CyberCroc GUI initialized' 'OK' 'Startup'
 $syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
 try{Sync-CcAccounts Pull|Out-Null}catch{}
