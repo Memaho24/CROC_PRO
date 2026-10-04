@@ -88,9 +88,28 @@ End If
 LogLine "PowerShell exited with code: " & rc
 
 If rc <> 0 Then
+    Dim errLog, errText
+    errLog = fso.BuildPath(logDir, "errors.log")
+    errText = ""
+    If fso.FileExists(errLog) Then
+        On Error Resume Next
+        Dim ef, allErr
+        Set ef = fso.OpenTextFile(errLog, 1, False, -1)
+        allErr = ef.ReadAll
+        ef.Close
+        If Len(allErr) > 1800 Then
+            errText = Right(allErr, 1800)
+        Else
+            errText = allErr
+        End If
+        On Error GoTo 0
+    End If
+    LogLine "Application error. errors.log tail:" & vbCrLf & errText
     MsgBox "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & _
-           "Код: " & rc & vbCrLf & _
-           "Откройте лог запуска:" & vbCrLf & logFile, _
+           "Код: " & rc & vbCrLf & vbCrLf & _
+           IIf(Len(errText) > 0, "Последняя ошибка:" & vbCrLf & errText & vbCrLf & vbCrLf, "") & _
+           "Лог запуска: " & logFile & vbCrLf & _
+           "Лог ошибок: " & errLog, _
            16, "CyberCroc"
     WScript.Quit rc
 End If
