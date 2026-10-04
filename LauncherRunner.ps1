@@ -22,6 +22,19 @@ try {
         $ScriptPath
     )
 
+    Write-Output ("LauncherRunner: validating PowerShell syntax...")
+    $files = @($ScriptPath) + @(Get-ChildItem -LiteralPath (Join-Path (Split-Path -Parent $ScriptPath) 'tools') -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+    foreach ($file in $files) {
+        $parseErrors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$parseErrors)
+        if ($parseErrors -and $parseErrors.Count -gt 0) {
+            foreach ($pe in $parseErrors) {
+                Write-Error ("SYNTAX ERROR: " + $file + ":" + $pe.Extent.StartLineNumber + ":" + $pe.Extent.StartColumnNumber + " - " + $pe.Message)
+            }
+            exit 10
+        }
+    }
+    Write-Output ("LauncherRunner: syntax validation OK (" + $files.Count + " files)")
     Write-Output ("LauncherRunner: starting child PowerShell for " + $ScriptPath)
     $child = Start-Process -FilePath $psExe -ArgumentList $args -WorkingDirectory (Split-Path -Parent $ScriptPath) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
 
