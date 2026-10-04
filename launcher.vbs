@@ -60,6 +60,33 @@ LogLine "PowerShell: " & psExe
 LogLine "Script: " & ps1
 LogLine "Starting PowerShell directly (no CMD redirection)..."
 
+' Preflight PowerShell parser check. This catches syntax errors before the GUI starts.
+Dim checkCmd, checkProc, checkOut, checkErr, parseRc
+checkCmd = """" & psExe & """" & " -NoLogo -NoProfile -NonInteractive -Command " & _
+           """" & "$e=@();[System.Management.Automation.Language.Parser]::ParseFile('" & Replace(ps1,"'","''") & "',[ref]$null,[ref]$e)|Out-Null;if($e.Count -gt 0){$e|ForEach-Object{Write-Output ('PARSE: '+$_.Message+' at line '+$_.Extent.StartLineNumber+', column '+$_.Extent.StartColumnNumber)};exit 10}else{exit 0}""""
+On Error Resume Next
+Set checkProc = shell.Exec(checkCmd)
+If Err.Number = 0 Then
+    Do While checkProc.Status = 0
+        WScript.Sleep 50
+    Loop
+    checkOut = checkProc.StdOut.ReadAll
+    checkErr = checkProc.StdErr.ReadAll
+    parseRc = checkProc.ExitCode
+    If Len(checkOut) > 0 Then LogLine "PowerShell preflight stdout:" & vbCrLf & checkOut
+    If Len(checkErr) > 0 Then LogLine "PowerShell preflight stderr:" & vbCrLf & checkErr
+    If parseRc <> 0 Then
+        LogLine "PowerShell syntax preflight FAILED with code: " & parseRc
+        MsgBox "Ошибка синтаксиса CyberCroc.ps1." & vbCrLf & vbCrLf & checkOut & vbCrLf & _
+               "Лог: " & logFile, 16, "CyberCroc"
+        WScript.Quit parseRc
+    End If
+Else
+    LogLine "WARNING: PowerShell parser preflight could not start: " & Err.Description
+    Err.Clear
+End If
+On Error GoTo 0
+
 On Error Resume Next
 Set proc = shell.Exec(cmd)
 If Err.Number <> 0 Then
