@@ -105,12 +105,11 @@ If rc <> 0 Then
         On Error GoTo 0
     End If
     LogLine "Application error. errors.log tail:" & vbCrLf & errText
-    MsgBox "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & _
-           "Код: " & rc & vbCrLf & vbCrLf & _
-           IIf(Len(errText) > 0, "Последняя ошибка:" & vbCrLf & errText & vbCrLf & vbCrLf, "") & _
-           "Лог запуска: " & logFile & vbCrLf & _
-           "Лог ошибок: " & errLog, _
-           16, "CyberCroc"
+    Dim userMsg
+    userMsg = "CyberCroc завершился с ошибкой." & vbCrLf & vbCrLf & "Код: " & rc & vbCrLf & vbCrLf
+    If Len(errText) > 0 Then userMsg = userMsg & "Последняя ошибка:" & vbCrLf & errText & vbCrLf & vbCrLf
+    userMsg = userMsg & "Лог запуска: " & logFile & vbCrLf & "Лог ошибок: " & errLog
+    MsgBox userMsg, 16, "CyberCroc"
     WScript.Quit rc
 End If
 
