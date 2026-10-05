@@ -382,18 +382,180 @@ function Invoke-AccountEdit {if($script:CcRole -ne 'admin'){return};if(-not $aLi
 function Invoke-AccountDelete {if($script:CcRole -ne 'admin'){return};if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};if(-not(Request-CcAdminAccess)){return};$a=$aList.SelectedItems[0].Tag;$answer=[Windows.Forms.MessageBox]::Show("Удалить аккаунт $($a.Login)?",'Удаление аккаунта',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Warning);if($answer -eq [Windows.Forms.DialogResult]::Yes){Remove-CcAccount $a.Id|Out-Null;Refresh-Accounts}}
 $aLogin.Add_Click({Invoke-AccountLogin});$aCheck.Add_Click({Invoke-AccountCheck})
 function Show-AccountDialog($existing=$null){
-    $d=New-Object Windows.Forms.Form;$d.Text=if($existing){'Изменить аккаунт'}else{'Добавить аккаунт'};$d.StartPosition='CenterParent';$d.Size=New-Object Drawing.Size(520,390);$d.BackColor=$C.Bg;$d.ForeColor=$C.Fg
-    $l=New-Object Windows.Forms.TableLayoutPanel;$l.Dock='Fill';$l.Padding=New-Object Windows.Forms.Padding(14);$l.ColumnCount=2;$l.RowCount=6
-    [void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,130)));[void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($l)
-    $names=@('Платформа','Логин','Пароль','Комментарий','Игры');$f=@{}
-    for($r=0;$r-lt 5;$r++){[void]$l.Controls.Add((New-Label $names[$r]),0,$r);if($names[$r] -eq 'Платформа'){$t=New-Object Windows.Forms.ComboBox;$t.DropDownStyle='DropDownList';[void]$t.Items.AddRange(@('Steam','Riot Games','Battle.net','Epic Games'));$t.Dock='Fill';Apply-ControlTheme $t}elseif($names[$r] -eq 'Игры'){$t=New-Object Windows.Forms.CheckedListBox;$t.Dock='Fill';$t.CheckOnClick=$true;Apply-ControlTheme $t}else{$t=New-Object Windows.Forms.TextBox;$t.Dock='Fill';Apply-ControlTheme $t};$f[$names[$r]]=$t;[void]$l.Controls.Add($t,1,$r)}
-    $l.RowStyles.Clear(); for($rr=0;$rr -lt 6;$rr++){ if($rr -eq 4){[void]$l.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,120)))} else {[void]$l.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,42)))}}
-    if($existing){$f['Платформа'].Text=$existing.Platform;$f['Логин'].Text=$existing.Login;$f['Комментарий'].Text=$existing.Comment}else{$f['Платформа'].Text='Steam'}
-    function Refresh-AccountGameChoices{$f['Игры'].Items.Clear();$platform=[string]$f['Платформа'].Text;foreach($g in @($script:GameCatalog|Where-Object{$_.Launcher -eq $platform})){$idx=$f['Игры'].Items.Add("$($g.Name) — $($g.Price)");if($existing -and @($existing.Games) -contains $g.Name){$f['Игры'].SetItemChecked($idx,$true)}}}
-    $f['Платформа'].Add_SelectedIndexChanged({Refresh-AccountGameChoices});Refresh-AccountGameChoices
-    $f['Пароль'].UseSystemPasswordChar=$true
-    $p=New-Flow;$p.FlowDirection='RightToLeft';$ok=New-Button 'Сохранить';$cancel=New-Button 'Отмена';$p.Controls.Add($ok);$p.Controls.Add($cancel);$l.Controls.Add($p,1,5);$cancel.Add_Click({$d.Close()})
-    $ok.Add_Click({ try { $games=@($f['Игры'].CheckedItems | ForEach-Object { ([string]$_) -replace ' — (Бесплатно|Платно)$','' } | Where-Object {$_}); if($existing){ Update-CcAccount $existing.Id @{Platform=$f['Платформа'].Text;Login=$f['Логин'].Text;Password=$f['Пароль'].Text;Comment=$f['Комментарий'].Text;Games=$games} | Out-Null } else { New-CcAccount $f['Платформа'].Text $f['Логин'].Text $f['Пароль'].Text $f['Комментарий'].Text $games | Out-Null }; $d.Close(); Refresh-Accounts } catch { Write-CcError -FunctionName 'Account-Dialog' -Exception $_.Exception; Show-CcErrorPopup 'Аккаунты' $_.Exception } })
+    $d = New-Object Windows.Forms.Form
+    if ($null -ne $existing) {
+        $d.Text = 'Изменить аккаунт'
+    }
+    else {
+        $d.Text = 'Добавить аккаунт'
+    }
+    $d.StartPosition = 'CenterParent'
+    $d.Size = New-Object Drawing.Size(560,430)
+    $d.BackColor = $C.Bg
+    $d.ForeColor = $C.Fg
+
+    $l = New-Object Windows.Forms.TableLayoutPanel
+    $l.Dock = 'Fill'
+    $l.Padding = New-Object Windows.Forms.Padding(14)
+    $l.ColumnCount = 2
+    $l.RowCount = 6
+    [void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,140)))
+    [void]$l.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)))
+    $d.Controls.Add($l)
+
+    $names = @('Платформа','Логин','Пароль','Комментарий','Игры')
+    $f = @{}
+
+    for ($r = 0; $r -lt 5; $r++) {
+        [void]$l.Controls.Add((New-Label $names[$r]),0,$r)
+
+        if ($names[$r] -eq 'Платформа') {
+            $t = New-Object Windows.Forms.ComboBox
+            $t.DropDownStyle = 'DropDownList'
+            $t.Dock = 'Fill'
+            [void]$t.Items.AddRange(@(
+                'Steam',
+                'Riot Games',
+                'Battle.net',
+                'Epic Games',
+                'EA App',
+                'Rockstar Games',
+                'VK Play',
+                'Wargaming',
+                'HoYoPlay',
+                'Minecraft Legacy',
+                'Roblox'
+            ))
+        }
+        elseif ($names[$r] -eq 'Игры') {
+            $t = New-Object Windows.Forms.CheckedListBox
+            $t.Dock = 'Fill'
+            $t.CheckOnClick = $true
+        }
+        else {
+            $t = New-Object Windows.Forms.TextBox
+            $t.Dock = 'Fill'
+        }
+
+        Apply-ControlTheme $t
+        $f[$names[$r]] = $t
+        [void]$l.Controls.Add($t,1,$r)
+    }
+
+    $l.RowStyles.Clear()
+    for ($rr = 0; $rr -lt 6; $rr++) {
+        if ($rr -eq 4) {
+            [void]$l.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,150)))
+        }
+        elseif ($rr -eq 5) {
+            [void]$l.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,64)))
+        }
+        else {
+            [void]$l.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,42)))
+        }
+    }
+
+    if ($null -ne $existing) {
+        $f['Платформа'].Text = [string]$existing.Platform
+        $f['Логин'].Text = [string]$existing.Login
+        $f['Комментарий'].Text = [string]$existing.Comment
+    }
+    else {
+        $f['Платформа'].Text = 'Steam'
+    }
+
+    function Refresh-AccountGameChoices {
+        try {
+            $f['Игры'].Items.Clear()
+            $platform = [string]$f['Платформа'].Text
+
+            foreach ($g in @($script:GameCatalog | Where-Object { $_.Launcher -eq $platform })) {
+                $displayName = [string]$g.Name
+                $price = [string]$g.Price
+                $idx = $f['Игры'].Items.Add(('{0} — {1}' -f $displayName,$price))
+
+                if ($null -ne $existing) {
+                    $savedGames = @($existing.Games)
+                    if ($savedGames -contains $displayName) {
+                        $f['Игры'].SetItemChecked($idx,$true)
+                    }
+                }
+            }
+        }
+        catch {
+            Write-CcError -FunctionName 'Refresh-AccountGameChoices' -Exception $_.Exception
+        }
+    }
+
+    $f['Платформа'].Add_SelectedIndexChanged({
+        Refresh-AccountGameChoices
+    })
+
+    Refresh-AccountGameChoices
+    $f['Пароль'].UseSystemPasswordChar = $true
+
+    $p = New-Flow
+    $p.FlowDirection = 'RightToLeft'
+
+    $ok = New-Button 'Сохранить' 150 52
+    $cancel = New-Button 'Отмена' 150 52
+
+    [void]$p.Controls.Add($ok)
+    [void]$p.Controls.Add($cancel)
+    [void]$l.Controls.Add($p,1,5)
+
+    $cancel.Add_Click({
+        $d.Close()
+    })
+
+    $ok.Add_Click({
+        try {
+            $games = @(
+                $f['Игры'].CheckedItems |
+                    ForEach-Object {
+                        $gameName = [string]$_
+                        $gameName = $gameName -replace '\s+—\s+(Бесплатно|Платно)$',''
+                        $gameName.Trim()
+                    } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+            )
+
+            $platform = [string]$f['Платформа'].Text
+            $login = [string]$f['Логин'].Text
+            $password = [string]$f['Пароль'].Text
+            $comment = [string]$f['Комментарий'].Text
+
+            if ([string]::IsNullOrWhiteSpace($platform)) {
+                throw 'Не выбрана платформа аккаунта.'
+            }
+
+            if ([string]::IsNullOrWhiteSpace($login)) {
+                throw 'Не указан логин аккаунта.'
+            }
+
+            if ($null -ne $existing) {
+                $data = @{
+                    Platform = $platform
+                    Login = $login
+                    Password = $password
+                    Comment = $comment
+                    Games = $games
+                }
+                Update-CcAccount $existing.Id $data | Out-Null
+            }
+            else {
+                New-CcAccount $platform $login $password $comment $games | Out-Null
+            }
+
+            $d.Close()
+            Refresh-Accounts
+        }
+        catch {
+            Write-CcError -FunctionName 'Account-Dialog' -Exception $_.Exception
+            Show-CcErrorPopup 'Аккаунты' $_.Exception
+        }
+    })
+
     [void]$d.ShowDialog($form)
 }
 $aAdd.Add_Click({Invoke-AccountAdd})
