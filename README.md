@@ -1,46 +1,83 @@
-# CyberCroc 0.4
+# CyberCroc 0.5
 
 GUI-first мастер-приложение для Windows 10/11 компьютерного клуба.
 
 ## Запуск
 
-Основной вход: `launcher.vbs`. Он запускает PowerShell GUI скрыто.
-`CyberCroc.cmd` и `Master.cmd` оставлены как совместимые точки входа и больше не содержат консольного меню.
+Основной вход: `launcher.vbs`. Он запускает PowerShell GUI скрыто и поднимает watchdog. `CyberCroc.cmd` и `Master.cmd` оставлены как совместимые точки входа.
 
 ## Структура
 
 ```
-CyberCroc.ps1          WinForms GUI
-launcher.vbs           скрытый запуск GUI
-version.txt            текущая версия
-config.ini             локальная конфигурация
-accounts.json          локальная БД аккаунтов (не коммитить)
-tools\Core.ps1         логирование, INI, общие helpers
-tools\Accounts.ps1     аккаунты + DPAPI + launch/check adapters
-tools\Hardware.ps1     мониторинг и инвентаризация
-tools\Apps.ps1         исправленная проверка приложений
-tools\Updater.ps1      обновление через SMB
-logs\                  CyberCroc.log и errors.log
+CyberCroc.ps1          WinForms GUI / client-admin shell
+launcher.vbs           скрытый запуск GUI + watchdog
+watchdog.ps1           PID/heartbeat watchdog
+install.ps1             первичная установка
+Deploy-Croc.cmd         wrapper развёртывания
+version.txt             текущая версия
+accounts.json             локальные данные аккаунтов
+data\queue.json         offline queue
+data\orders.json        журнал заказов
+data\calls.json         журнал вызовов
+data\products-cache.json кэш товаров
+tools\Core.ps1         INI, DPAPI, atomic JSON, logging
+tools\Network.ps1      UDP 50505 + discovery
+tools\Queue.ps1        persistent queue
+tools\Orders.ps1       orders/calls + ACK
+tools\Products.ps1     Google Sheets v4 + cache
+tools\Fleet.ps1        SMB config/cache distribution
+tools\Accounts.ps1     account adapters
+tools\Updater.ps1      SMB updater
 ```
 
-## Логирование
+## Роли и секреты
 
-Ошибки функций пишутся в `logs\errors.log` с датой, функцией и полным исключением. Обычные операции идут в `logs\CyberCroc.log`.
+`ROLE=client` — клиентский ПК. `ROLE=admin` — стойка.
 
-## Аккаунты
+Мастер-пароль хранится в `ADMIN_PASSWORD_PROTECTED` через Windows DPAPI. Открытого `ADMIN_PASSWORD=` в конфиге 0.5.0 нет. Путь к JSON service account задаётся только на админском ПК и исключён из fleet sync.
 
-Пароли хранятся не в открытом виде: PowerShell DPAPI защищает их для текущего Windows-пользователя. `accounts.json` добавлен в gitignore.
+CyberCroc не извлекает чужие Steam/Riot/Battle.net/Epic пароли из профилей и не передаёт сохранённый пароль командной строкой.
 
-Steam: при наличии `STEAM_API_KEY` выполняются GetOwnedGames и GetPlayerBans; список игр и часы сохраняются в карточке аккаунта. Steam Web API документирует оба метода. Riot/Battle.net/Epic не имеют эквивалентного универсального публичного API, поэтому приложение не делает фиктивные проверки: для них показывается состояние «не проверен», а запуск использует локальный сохранённый сеанс лаунчера.
+## Товары
+
+Админский ПК может читать и редактировать Google Sheets через service-account JWT + Sheets API v4. Клиентские ПК используют локальный cache. При потере Google/network-соединения каталог продолжает работать по кэшу.
+
+## Offline-first
+
+Заказы и вызовы сначала сохраняются в `data\queue.json`, затем отправляются UDP broadcast на 50505. Клиент удаляет операцию из очереди только после ACK от админской стойки.
 
 ## Обновление
 
-Укажите `UPDATE_SHARE=\\MAIN-PC\CyberCroc_Update` или другой SMB путь в `config.ini`. Каждый час приложение проверяет `version.txt`; при более новой версии скрытый updater выполняет staging + robocopy, не заменяя `config.ini`, `accounts.json`, `logs\` и `BACKUP\`, затем перезапускает GUI.
+Основной канал: SMB `UPDATE_SHARE`. GitHub включается отдельно через `GITHUB_UPDATE_ENABLED=1`. Локальные настройки, `data`, `runtime` и логи не перезаписываются.
 
-## Важное ограничение
+## Установка
 
-Нельзя безопасно считать Steam/Riot/Battle.net/Epic пароли или токены из чужих профилей. CyberCroc хранит только введённые администратором данные и не выводит секреты в логи. Для Steam `-login` может передавать пароль командной строкой, поэтому на клубных ПК доступ к локальному администрированию должен быть ограничен.
+Клиент:
 
-## Ветка разработки
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\install.ps1 -Role client -PcId PC-07 -Zone standard
+```
 
-Эта версия собрана в отдельной ветке `cybercroc2-refactor`, чтобы не ломать текущую `main`.
+Админ:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\install.ps1 -Role admin -PcId MAIN-01 -Zone admin
+```
+
+Установщик попросит задать мастер-пароль интерактивно.
+
+## Проверка на целевой Windows
+
+Запустите:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\tests\Static-Validate.ps1
+```
+
+Полноценный WinForms/network тест должен выполняться на Windows 10/11 в клубном сегменте; в Linux-окружении разработки Windows PowerShell 5.1 и WinForms runtime отсутствуют.
+
+## Что не входит в 0.5.0
+
+Failover резервных стоек, persistent rollback, read-only баланс Langame, shift handover, feedback и функции из третьей версии оставлены следующими этапами.
+
+Ветка: `cybercroc2-refactor`.

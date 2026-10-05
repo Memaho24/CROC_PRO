@@ -1,0 +1,512 @@
+﻿[
+    {
+        "Name":  "Adrenaline 0,449л",
+        "Price":  0,
+        "Sku":  "adrenaline_0,449л",
+        "StockItem":  "Adrenaline 0,449л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  32
+    },
+    {
+        "Name":  "Aqua Minerale 0,5л",
+        "Price":  0,
+        "Sku":  "aqua_minerale_0,5л",
+        "StockItem":  "Aqua Minerale 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "BonAqua 0,5л",
+        "Price":  0,
+        "Sku":  "bonaqua_0,5л",
+        "StockItem":  "BonAqua 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "BURN 0,449л",
+        "Price":  195,
+        "Sku":  "burn_0,449л",
+        "StockItem":  "BURN 0,449л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  38
+    },
+    {
+        "Name":  "Chillout 0,45л",
+        "Price":  0,
+        "Sku":  "chillout_0,45л",
+        "StockItem":  "Chillout 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  5
+    },
+    {
+        "Name":  "Cola fresh bar 0,45л",
+        "Price":  0,
+        "Sku":  "cola_fresh_bar_0,45л",
+        "StockItem":  "Cola fresh bar 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  8
+    },
+    {
+        "Name":  "Flash Up Energy 0,45л",
+        "Price":  0,
+        "Sku":  "flash_up_energy_0,45л",
+        "StockItem":  "Flash Up Energy 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  51
+    },
+    {
+        "Name":  "Fresh bar 0,45л",
+        "Price":  0,
+        "Sku":  "fresh_bar_0,45л",
+        "StockItem":  "Fresh bar 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  37
+    },
+    {
+        "Name":  "Gorilla 0,45л",
+        "Price":  0,
+        "Sku":  "gorilla_0,45л",
+        "StockItem":  "Gorilla 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  42
+    },
+    {
+        "Name":  "Lipton 0,5л",
+        "Price":  0,
+        "Sku":  "lipton_0,5л",
+        "StockItem":  "Lipton 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  11
+    },
+    {
+        "Name":  "Lit energy 0,45л",
+        "Price":  0,
+        "Sku":  "lit_energy_0,45л",
+        "StockItem":  "Lit energy 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  20
+    },
+    {
+        "Name":  "Rich чай 0,5л",
+        "Price":  0,
+        "Sku":  "rich_чай_0,5л",
+        "StockItem":  "Rich чай 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  38
+    },
+    {
+        "Name":  "Tornado 0,45л",
+        "Price":  110,
+        "Sku":  "tornado_0,45л",
+        "StockItem":  "Tornado 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  90
+    },
+    {
+        "Name":  "X-TURBO 0,45",
+        "Price":  0,
+        "Sku":  "x-turbo_0,45",
+        "StockItem":  "X-TURBO 0,45",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  4
+    },
+    {
+        "Name":  "Вода Sensia Fresh",
+        "Price":  0,
+        "Sku":  "вода_sensia_fresh",
+        "StockItem":  "Вода Sensia Fresh",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  32
+    },
+    {
+        "Name":  "Вода Хрустальная 0,5л",
+        "Price":  0,
+        "Sku":  "вода_хрустальная_0,5л",
+        "StockItem":  "Вода Хрустальная 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  3
+    },
+    {
+        "Name":  "Добрый 0,5л",
+        "Price":  0,
+        "Sku":  "добрый_0,5л",
+        "StockItem":  "Добрый 0,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  72
+    },
+    {
+        "Name":  "ПАЛПИ 0,45л",
+        "Price":  0,
+        "Sku":  "палпи_0,45л",
+        "StockItem":  "ПАЛПИ 0,45л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  32
+    },
+    {
+        "Name":  "Tornado 1л",
+        "Price":  0,
+        "Sku":  "tornado_1л",
+        "StockItem":  "Tornado 1л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  5
+    },
+    {
+        "Name":  "Черноголовка 1л",
+        "Price":  0,
+        "Sku":  "черноголовка_1л",
+        "StockItem":  "Черноголовка 1л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  7
+    },
+    {
+        "Name":  "Fresh bar 1,5л",
+        "Price":  0,
+        "Sku":  "fresh_bar_1,5л",
+        "StockItem":  "Fresh bar 1,5л",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  9
+    },
+    {
+        "Name":  "Cheetos 50г",
+        "Price":  0,
+        "Sku":  "cheetos_50г",
+        "StockItem":  "Cheetos 50г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  19
+    },
+    {
+        "Name":  "Lays 140г",
+        "Price":  0,
+        "Sku":  "lays_140г",
+        "StockItem":  "Lays 140г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  9
+    },
+    {
+        "Name":  "Lays 70г",
+        "Price":  0,
+        "Sku":  "lays_70г",
+        "StockItem":  "Lays 70г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  5
+    },
+    {
+        "Name":  "Lays из печи 85г",
+        "Price":  0,
+        "Sku":  "lays_из_печи_85г",
+        "StockItem":  "Lays из печи 85г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  17
+    },
+    {
+        "Name":  "Хрустим Багет 60г",
+        "Price":  0,
+        "Sku":  "хрустим_багет_60г",
+        "StockItem":  "Хрустим Багет 60г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Хруст Nut 80 г",
+        "Price":  0,
+        "Sku":  "хруст_nut_80_г",
+        "StockItem":  "Хруст Nut 80 г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  6
+    },
+    {
+        "Name":  "Choco pie",
+        "Price":  40,
+        "Sku":  "choco_pie",
+        "StockItem":  "Choco pie",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  40
+    },
+    {
+        "Name":  "BOUNTY",
+        "Price":  0,
+        "Sku":  "bounty",
+        "StockItem":  "BOUNTY",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Bounty Trio",
+        "Price":  0,
+        "Sku":  "bounty_trio",
+        "StockItem":  "Bounty Trio",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  3
+    },
+    {
+        "Name":  "Mars",
+        "Price":  0,
+        "Sku":  "mars",
+        "StockItem":  "Mars",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Mars Max",
+        "Price":  0,
+        "Sku":  "mars_max",
+        "StockItem":  "Mars Max",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "SNICKERS",
+        "Price":  0,
+        "Sku":  "snickers",
+        "StockItem":  "SNICKERS",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Snickers Super",
+        "Price":  0,
+        "Sku":  "snickers_super",
+        "StockItem":  "Snickers Super",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  3
+    },
+    {
+        "Name":  "TWIX",
+        "Price":  0,
+        "Sku":  "twix",
+        "StockItem":  "TWIX",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "TWIX Xtra",
+        "Price":  0,
+        "Sku":  "twix_xtra",
+        "StockItem":  "TWIX Xtra",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Гудмикс 40г",
+        "Price":  0,
+        "Sku":  "гудмикс_40г",
+        "StockItem":  "Гудмикс 40г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Любятово 50г",
+        "Price":  0,
+        "Sku":  "любятово_50г",
+        "StockItem":  "Любятово 50г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  19
+    },
+    {
+        "Name":  "Мармелад GORILLA 60г",
+        "Price":  140,
+        "Sku":  "мармелад_gorilla_60г",
+        "StockItem":  "Мармелад GORILLA 60г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  9
+    },
+    {
+        "Name":  "Бельмеши 300гр",
+        "Price":  0,
+        "Sku":  "бельмеши_300гр",
+        "StockItem":  "Бельмеши 300гр",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  11
+    },
+    {
+        "Name":  "Круггетсы 200г",
+        "Price":  0,
+        "Sku":  "круггетсы_200г",
+        "StockItem":  "Круггетсы 200г",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  6
+    },
+    {
+        "Name":  "Хотстеры 250гр",
+        "Price":  0,
+        "Sku":  "хотстеры_250гр",
+        "StockItem":  "Хотстеры 250гр",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  10
+    },
+    {
+        "Name":  "Чебупели с ветчиной и сыром 240гр",
+        "Price":  0,
+        "Sku":  "чебупели_с_ветчиной_и_сыром_240гр",
+        "StockItem":  "Чебупели с ветчиной и сыром 240гр",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  11
+    },
+    {
+        "Name":  "Чебупели сочные с мясом 240гр",
+        "Price":  0,
+        "Sku":  "чебупели_сочные_с_мясом_240гр",
+        "StockItem":  "Чебупели сочные с мясом 240гр",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  11
+    },
+    {
+        "Name":  "Чебупицца 250гр",
+        "Price":  0,
+        "Sku":  "чебупицца_250гр",
+        "StockItem":  "Чебупицца 250гр",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  14
+    },
+    {
+        "Name":  "Burn",
+        "Price":  195,
+        "Sku":  "burn",
+        "StockItem":  "Burn",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  38
+    },
+    {
+        "Name":  "Tornado",
+        "Price":  110,
+        "Sku":  "tornado",
+        "StockItem":  "Tornado",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  90
+    },
+    {
+        "Name":  "Chitos",
+        "Price":  110,
+        "Sku":  "chitos",
+        "StockItem":  "Chitos",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Chocopai",
+        "Price":  40,
+        "Sku":  "chocopai",
+        "StockItem":  "Chocopai",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  40
+    },
+    {
+        "Name":  "Gorila en",
+        "Price":  150,
+        "Sku":  "gorila_en",
+        "StockItem":  "Gorila en",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  0
+    },
+    {
+        "Name":  "Gorila мармелад",
+        "Price":  140,
+        "Sku":  "gorila_мармелад",
+        "StockItem":  "Gorila мармелад",
+        "StockQty":  1,
+        "Category":  "Бар",
+        "Available":  true,
+        "Stock":  9
+    }
+]

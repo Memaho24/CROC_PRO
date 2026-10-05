@@ -1,6 +1,6 @@
-Option Explicit
+﻿Option Explicit
 
-Dim shell, fso, root, ps1, runner, logDir, logFile, psExe, cmd, rc, proc
+Dim shell, fso, root, ps1, runner, watchdog, logDir, logFile, psExe, cmd, watchdogCmd, rc, proc
 Dim stdoutText, stderrText, errLog, errText, userMsg
 
 Set shell = CreateObject("WScript.Shell")
@@ -9,6 +9,7 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 ps1 = fso.BuildPath(root, "CyberCroc.ps1")
 runner = fso.BuildPath(root, "LauncherRunner.ps1")
+watchdog = fso.BuildPath(root, "watchdog.ps1")
 logDir = fso.BuildPath(root, "logs")
 logFile = fso.BuildPath(logDir, "launcher.log")
 
@@ -32,6 +33,7 @@ LogLine "=== CyberCroc launcher started ==="
 LogLine "Root: " & root
 LogLine "PowerShell: " & shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
 LogLine "Script: " & ps1
+LogLine "Watchdog: " & watchdog
 
 If Not fso.FileExists(ps1) Then
     LogLine "ERROR: CyberCroc.ps1 not found: " & ps1
@@ -46,6 +48,18 @@ If Not fso.FileExists(runner) Then
 End If
 
 psExe = shell.ExpandEnvironmentStrings("%SystemRoot%") & "\System32\WindowsPowerShell\v1.0\powershell.exe"
+If fso.FileExists(watchdog) Then
+    On Error Resume Next
+    watchdogCmd = Chr(34) & psExe & Chr(34) & " -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File " & Chr(34) & watchdog & Chr(34) & " -Root " & Chr(34) & root & Chr(34)
+    shell.Run watchdogCmd, 0, False
+    If Err.Number <> 0 Then
+        LogLine "WARNING: Could not start watchdog: " & Err.Description
+        Err.Clear
+    Else
+        LogLine "Watchdog started."
+    End If
+    On Error GoTo 0
+End If
 On Error Resume Next
 shell.CurrentDirectory = root
 If Err.Number <> 0 Then

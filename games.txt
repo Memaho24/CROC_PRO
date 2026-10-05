@@ -1,9 +1,18 @@
 # CyberCroc game inventory
-# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion
-# Steam is detected by AppID and appmanifest files.
-Counter-Strike 2|C:\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe|steam||730||Бесплатно
-Dota 2|C:\Steam\steamapps\common\dota 2 beta\game\bin\win64\dota2.exe|steam||570||Бесплатно
-PUBG: Battlegrounds|C:\Steam\steamapps\common\PUBG\TslGame\Binaries\Win64\TslGame.exe|steam||578080||Бесплатно
-League of Legends|C:\Riot Games\League of Legends\LeagueClient.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe|||Бесплатно
-Valorant|C:\Riot Games\VALORANT\live\VALORANT.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe|||Бесплатно
-Warface|C:\VK Play\Warface\Bin64Release\Game.exe|vk||||Бесплатно
+# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion|Price
+Counter-Strike 2|C:\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe|steam|Steam|730||Бесплатно
+Dota 2|C:\Steam\steamapps\common\dota 2 beta\game\bin\win64\dota2.exe|steam|Steam|570||Бесплатно
+Valorant|C:\Riot Games\VALORANT\live\VALORANT.exe|riot|Riot Games||||Бесплатно
+League of Legends|C:\Riot Games\League of Legends\LeagueClient.exe|riot|Riot Games||||Бесплатно
+Fortnite|C:\Program Files\Epic Games\Fortnite\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe|epic|Epic Games||||Бесплатно
+PUBG: Battlegrounds|C:\Steam\steamapps\common\PUBG\TslGame\Binaries\Win64\TslGame.exe|steam|Steam|578080||Бесплатно
+Apex Legends|C:\Steam\steamapps\common\Apex Legends\r5apex.exe|steam|Steam|1172470||Бесплатно
+Grand Theft Auto V|C:\Steam\steamapps\common\Grand Theft Auto V\GTA5.exe|steam|Steam|271590|||
+Minecraft|C:\Program Files (x86)\Minecraft Launcher\MinecraftLauncher.exe|minecraft|Other||||
+Roblox|%LOCALAPPDATA%\Roblox\Versions\RobloxPlayerBeta.exe|roblox|Other||||Бесплатно
+Overwatch 2|C:\Steam\steamapps\common\Overwatch\_retail_\Overwatch.exe|steam|Steam|2357570||Бесплатно
+Rainbow Six Siege|C:\Steam\steamapps\common\Tom Clancy’s Rainbow Six Siege\RainbowSix.exe|steam|Steam|359550|||
+Warface|C:\VK Play\Warface\Bin64Release\Game.exe|vk|Other||||Бесплатно
+World of Tanks|C:\Games\World_of_Tanks\win64\WorldOfTanks.exe|steam|Steam|1407200||Бесплатно
+CrossFire||other|Other||||Бесплатно
+Point Blank||other|Other||||Бесплатно
