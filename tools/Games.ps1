@@ -29,7 +29,7 @@ function Install-CcGameLauncher([object]$Game){
         $info=Get-CcGameLauncherInfo ([string]$Game.Launcher)
         $existing=Find-CcLauncherExe $info.ExeNames
         if($existing){Write-CcLog "Launcher already installed: $($info.Name) -> $existing" 'OK' 'Install-CcGameLauncher';return $existing}
-        if($info.Type -eq 'Store'){Start-Process -FilePath $info.InstallerUrl;Write-CcLog "Opened Microsoft Store for launcher: $($info.Name)" 'INFO' 'Install-CcGameLauncher';return ''}
+        if($info.Type -eq 'Store'){try{$winget=Get-Command winget.exe -ErrorAction Stop;$p=Start-Process -FilePath $winget.Source -ArgumentList @('install','--id','9PMF91N3LZ3M','-e','--source','msstore','--accept-source-agreements','--accept-package-agreements') -Wait -PassThru;if($p.ExitCode -eq 0){Write-CcLog "Roblox - Windows installed via Microsoft Store/winget" 'OK' 'Install-CcGameLauncher';return ''}}catch{Write-CcLog "winget Roblox install unavailable: $($_.Exception.Message)" 'WARN' 'Install-CcGameLauncher'};Start-Process -FilePath $info.InstallerUrl;Write-CcLog "Opened Microsoft Store for launcher: $($info.Name)" 'INFO' 'Install-CcGameLauncher';return ''}
         if($info.Type -eq 'Web'){if([string]::IsNullOrWhiteSpace($info.InstallerUrl)){throw "Ссылка на установку лаунчера $($info.Name) не задана."};Start-Process $info.InstallerUrl;Write-CcLog "Opened launcher download page: $($info.Name)" 'INFO' 'Install-CcGameLauncher';return ''}
         $tmpRoot=Join-Path $env:TEMP 'CyberCroc\Launchers'
         New-Item -ItemType Directory -Path $tmpRoot -Force|Out-Null
