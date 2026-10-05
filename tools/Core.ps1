@@ -56,7 +56,7 @@ function Get-CcConfig {
         if($script:CcConfigCache -and -not $Refresh){return $script:CcConfigCache}
         if(-not(Test-Path -LiteralPath $Path)){ $example=Join-Path $script:CcRoot 'config.example.ini';if(Test-Path -LiteralPath $example){Copy-Item $example $Path -Force} }
         $script:CcConfigPath=$Path;$script:CcConfigCache=Read-CcIni -Path $Path
-        $defaults=@{'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM';'BAR_SHEET_URL'='';'BAR_SHARE'='';'GAMES_SOURCE_URL'='';'ADMIN_PASSWORD'='croc'}; foreach($key in $defaults.Keys){if(-not $script:CcConfigCache.ContainsKey([string]$key)){$script:CcConfigCache[[string]$key]=$defaults[$key]}}
+        $defaults=@{'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='1l-p_ck7hS1PmrqJDYAQcni6_boxFK3Pl5BFGqKoMRWM';'BAR_SHEET_URL'='';'BAR_SHARE'='';'BAR_PRICE_SHEET_NAME'='Цены';'GOOGLE_SERVICE_ACCOUNT_JSON'='';'GAMES_SOURCE_URL'='';'ADMIN_PASSWORD'='croc'}; foreach($key in $defaults.Keys){if(-not $script:CcConfigCache.ContainsKey([string]$key)){$script:CcConfigCache[[string]$key]=$defaults[$key]}}
         return $script:CcConfigCache
     } catch {Write-CcError -FunctionName 'Get-CcConfig' -Exception $_.Exception;return @{}}
 }
