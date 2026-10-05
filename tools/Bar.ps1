@@ -106,6 +106,43 @@ function Get-CcBarSeed {
     })
 }
 function Save-CcBarLocalSeed {try{$c=Get-CcBarConfig;if(Test-Path -LiteralPath $c.Cache){return};$items=@(Get-CcBarSeed);$items|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $c.Cache -Encoding UTF8;$stock=@{};foreach($x in $items){$stock[$x.Sku]=[decimal]$x.Stock};$stock|ConvertTo-Json|Set-Content -LiteralPath $c.Stock -Encoding UTF8;Write-CcLog "Bar local seed created: $($items.Count) items" 'OK' 'Save-CcBarLocalSeed'}catch{Write-CcError -FunctionName 'Save-CcBarLocalSeed' -Exception $_.Exception}}
+function ConvertTo-CcBarBase64Url([byte[]]$Bytes){ return ([Convert]::ToBase64String($Bytes)).TrimEnd('=').Replace('+','-').Replace('/','_') }
+function Get-CcBarGoogleToken {
+    try {
+        $cfg=Get-CcConfig; $keyPath=[string]$cfg['GOOGLE_SERVICE_ACCOUNT_JSON']
+        if([string]::IsNullOrWhiteSpace($keyPath)){ foreach($candidate in @('google-service-account.json','service-account.json','credentials.json')){ $p=Join-Path $script:CcRoot $candidate; if(Test-Path -LiteralPath $p){$keyPath=$p;break} } }
+        if([string]::IsNullOrWhiteSpace($keyPath) -or -not(Test-Path -LiteralPath $keyPath)){return ''}
+        $cred=Get-Content -LiteralPath $keyPath -Raw -Encoding UTF8|ConvertFrom-Json
+        if(-not $cred.client_email -or -not $cred.private_key){throw 'В JSON ключе Google нет client_email/private_key.'}
+        $now=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        $header=@{alg='RS256';typ='JWT'}; if($cred.private_key_id){$header.kid=[string]$cred.private_key_id}
+        $payload=@{iss=[string]$cred.client_email;scope='https://www.googleapis.com/auth/spreadsheets.readonly';aud='https://oauth2.googleapis.com/token';iat=$now;exp=($now+3600)}
+        $h=ConvertTo-CcBarBase64Url ([Text.Encoding]::UTF8.GetBytes(($header|ConvertTo-Json -Compress))); $p=ConvertTo-CcBarBase64Url ([Text.Encoding]::UTF8.GetBytes(($payload|ConvertTo-Json -Compress))); $unsigned="$h.$p"
+        $pem=[string]$cred.private_key; $b64=($pem -replace '-----BEGIN PRIVATE KEY-----','' -replace '-----END PRIVATE KEY-----','' -replace 's',''); $key=[Convert]::FromBase64String($b64)
+        $cng=[Security.Cryptography.CngKey]::Import($key,[Security.Cryptography.CngKeyBlobFormat]::Pkcs8PrivateBlob); $rsa=New-Object Security.Cryptography.RSACng($cng)
+        try{$sig=$rsa.SignData([Text.Encoding]::UTF8.GetBytes($unsigned),[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)}finally{$rsa.Dispose();$cng.Dispose()}
+        $jwt="$unsigned.$(ConvertTo-CcBarBase64Url $sig)"; $body="grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=$([Uri]::EscapeDataString($jwt))"
+        $resp=Invoke-RestMethod -Uri 'https://oauth2.googleapis.com/token' -Method Post -ContentType 'application/x-www-form-urlencoded' -Body $body -TimeoutSec 20 -ErrorAction Stop
+        return [string]$resp.access_token
+    } catch { Write-CcLog "Google service-account auth unavailable: $($_.Exception.Message)" 'WARN' 'Get-CcBarGoogleToken'; return '' }
+}
+function Get-CcBarGoogleValues([string]$SheetName,[string]$Range='A:Z') {
+    try {
+        $token=Get-CcBarGoogleToken; if([string]::IsNullOrWhiteSpace($token)){return $null}; $cfg=Get-CcConfig; $id=[string]$cfg['BAR_SHEET_ID']; if([string]::IsNullOrWhiteSpace($id)){return $null}
+        $a1="$SheetName!$Range"; $url="https://sheets.googleapis.com/v4/spreadsheets/$id/values/$([Uri]::EscapeDataString($a1))?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE"
+        $resp=Invoke-RestMethod -Uri $url -Headers @{Authorization="Bearer $token"} -Method Get -TimeoutSec 20 -ErrorAction Stop
+        if($resp.values){return @($resp.values)}; return @()
+    } catch { Write-CcLog "Google API read failed for sheet '$SheetName': $($_.Exception.Message)" 'WARN' 'Get-CcBarGoogleValues'; return $null }
+}
+function Normalize-CcBarKey([object]$Value){if($null -eq $Value){return ''};return ([string]$Value).Trim().ToLowerInvariant() -replace '[^0-9a-zа-яё]+',''}
+function Get-CcBarPriceRows([string]$SheetName='Цены') {
+    $rows=Get-CcBarGoogleValues $SheetName 'A:Z'; if($null -eq $rows -or @($rows).Count -lt 2){return @()}
+    $head=@($rows[0]|ForEach-Object{([string]$_).Trim().ToLowerInvariant()}); $nameIdx=-1;$skuIdx=-1;$priceIdx=-1;$stockIdx=-1
+    for($i=0;$i -lt $head.Count;$i++){switch($head[$i]){'name' {$nameIdx=$i};'товар' {$nameIdx=$i};'название' {$nameIdx=$i};'наименование' {$nameIdx=$i};'sku' {$skuIdx=$i};'артикул' {$skuIdx=$i};'price' {$priceIdx=$i};'цена' {$priceIdx=$i};'stock' {$stockIdx=$i};'остаток' {$stockIdx=$i};'количество' {$stockIdx=$i}}}
+    if($nameIdx -lt 0 -and $skuIdx -lt 0){return @()}; $out=@()
+    foreach($row in @($rows|Select-Object -Skip 1)){$v=@($row);$name=if($nameIdx -ge 0 -and $nameIdx -lt $v.Count){[string]$v[$nameIdx]}else{''};$sku=if($skuIdx -ge 0 -and $skuIdx -lt $v.Count){[string]$v[$skuIdx]}else{''};if([string]::IsNullOrWhiteSpace($name)-and[string]::IsNullOrWhiteSpace($sku)){continue};$price=0;if($priceIdx -ge 0 -and $priceIdx -lt $v.Count){$price=ConvertTo-CcBarDecimalValue $v[$priceIdx]};$stock=0;if($stockIdx -ge 0 -and $stockIdx -lt $v.Count){$stock=ConvertTo-CcBarDecimalValue $v[$stockIdx]};$out+=[pscustomobject]@{Name=$name;Sku=$sku;Price=$price;Stock=$stock}}
+    return @($out)
+}
 function Get-CcBarMenu {
  try{$c=Get-CcBarConfig;Save-CcBarLocalSeed;$uri=if($c.SheetUrl){Resolve-CcBarSheetUrl $c.SheetUrl}elseif($c.SheetId){"https://docs.google.com/spreadsheets/d/$($c.SheetId)/export?format=csv"}else{''};if($uri){try{$csv=(Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop).Content;$rows=@($csv -split '?
 '|Where-Object{$_.Trim()});if($rows.Count -ge 2){$head=ConvertFrom-CcCsvLine $rows[0];$result=@();for($i=1;$i -lt $rows.Count;$i++){$v=ConvertFrom-CcCsvLine $rows[$i];$o=@{};for($j=0;$j -lt $head.Count;$j++){if($j -lt $v.Count){$o[$head[$j].Trim().ToLowerInvariant()]=$v[$j]}};if($o['name']){$result+=[pscustomobject]@{Name=[string]$o['name'];Price=(ConvertTo-CcBarDecimalValue (if($o['price']){$o['price']}else{0}));Sku=[string]$(if($o['sku']){$o['sku']}else{$o['name']});StockItem=[string]$o['name'];StockQty=1;Stock=(ConvertTo-CcBarDecimalValue (if($o['stock']){$o['stock']}elseif($o['stockqty']){$o['stockqty']}elseif($o['наличие']){$o['наличие']}else{0}));Category=[string]$(if($o['category']){$o['category']}else{'Бар'});Available=if($o.ContainsKey('available')){[string]$o['available'] -notin @('0','false','нет')}else{$true}}}};if($result.Count -gt 0){$result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $c.Cache -Encoding UTF8;Write-CcLog "Bar menu synchronized from Google Sheets: $($result.Count) items" 'OK' 'Get-CcBarMenu'}}}catch{Write-CcLog "Google Sheets unavailable, using local bar cache: $($_.Exception.Message)" 'WARN' 'Get-CcBarMenu'}};$result=@();if(Test-Path -LiteralPath $c.Cache){$json=Get-Content -LiteralPath $c.Cache -Raw; $parsed=ConvertFrom-Json -InputObject $json; $result=@($parsed)};if(-not$result -or $result.Count -eq 0){$result=@(Get-CcBarSeed)};if(Test-Path -LiteralPath $c.Prices){$ov=Get-Content -LiteralPath $c.Prices -Raw|ConvertFrom-Json;foreach($m in $result){if($m.Sku -and $ov.PSObject.Properties.Name -contains $m.Sku){$m.Price=ConvertTo-CcBarDecimalValue $ov.($m.Sku)}}};return $result
