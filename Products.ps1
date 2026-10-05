@@ -11,12 +11,25 @@ $script:CcGoogleTokenCache=@{Token='';ExpiresUtc=(Get-Date).ToUniversalTime().Ad
 
 function Get-CcProductsConfig {
     $cfg=Get-CcConfig
+    $url=[string]$(if($cfg['PRODUCT_SHEET_URL']){$cfg['PRODUCT_SHEET_URL']}else{$cfg['BAR_SHEET_URL']})
     [pscustomobject]@{
-        SheetUrl=[string]$(if($cfg['PRODUCT_SHEET_URL']){$cfg['PRODUCT_SHEET_URL']}else{''})
+        SheetUrl=$url
         SheetId=[string]$(if($cfg['PRODUCT_SHEET_ID']){$cfg['PRODUCT_SHEET_ID']}else{''})
-        Range=[string]$(if($cfg['PRODUCT_SHEET_RANGE']){$cfg['PRODUCT_SHEET_RANGE']}else{'Sheet1!A:C'})
+        Range=[string]$(if($cfg['PRODUCT_SHEET_RANGE']){$cfg['PRODUCT_SHEET_RANGE']}else{'A:G'})
         ServiceAccountJson=[string]$(if($cfg['GOOGLE_SERVICE_ACCOUNT_JSON']){$cfg['GOOGLE_SERVICE_ACCOUNT_JSON']}else{''})
+        SheetGid=[string]$(if($url -match '[?&]gid=(\d+)'){$Matches[1]}else{''})
     }
+}
+function Resolve-CcGoogleSheetRange([string]$Token,[string]$SheetId,[string]$ConfiguredRange,[string]$SheetGid) {
+    $range=if($ConfiguredRange){$ConfiguredRange}else{'A:G'}
+    if($range -match '!'){return $range}
+    if(-not $SheetGid){return $range}
+    try {
+        $meta=Invoke-RestMethod -Uri "https://sheets.googleapis.com/v4/spreadsheets/$SheetId?fields=sheets(properties(sheetId,title))" -Headers @{Authorization="Bearer $Token"} -Method Get -TimeoutSec 20 -ErrorAction Stop
+        $sheet=@($meta.sheets)|Where-Object {[string]$_.properties.sheetId -eq [string]$SheetGid}|Select-Object -First 1
+        if($sheet){$title=([string]$sheet.properties.title).Replace("'","''");return "'$title'!$range"}
+    } catch { Write-CcLog "Google Sheets metadata lookup failed: $($_.Exception.Message)" 'WARN' 'Resolve-CcGoogleSheetRange' }
+    return $range
 }
 function Get-CcSheetId([string]$Url,[string]$ConfiguredId='') {
     if($ConfiguredId){return $ConfiguredId}
@@ -97,7 +110,7 @@ function Get-CcProducts {
         if($sheetId -and $cfg.ServiceAccountJson){
             $token=Get-CcGoogleAccessToken
             if($token){
-                $range=[uri]::EscapeDataString($cfg.Range);$uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$range"
+                $resolvedRange=Resolve-CcGoogleSheetRange $token $sheetId $cfg.Range $cfg.SheetGid;$range=[uri]::EscapeDataString($resolvedRange);$uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$range"
                 try{
                     $resp=Invoke-RestMethod -Uri $uri -Headers @{Authorization="Bearer $token"} -Method Get -TimeoutSec 20 -ErrorAction Stop
                     $rows=@($resp.values);if($rows.Count -gt 0){
@@ -109,7 +122,7 @@ function Get-CcProducts {
                                 $result+=[pscustomobject]@{Name=[string]$name;Price=[decimal]$price;Quantity=[decimal]$qty;Row=$i+1;Sku=[string]$(if($map.ContainsKey('sku')){$map['sku']}else{$name});Category=[string]$(if($map.ContainsKey('category')){$map['category']}else{'Бар'})}
                             }
                         }
-                        $cache=[pscustomobject]@{UpdatedUtc=(Get-Date).ToUniversalTime().ToString('o');Headers=$head;Rows=$rows;Items=$result;SheetId=$sheetId;Range=$cfg.Range};Write-CcJsonAtomic -Path $script:CcProductsCache -Object $cache|Out-Null;return @($result)
+                        $cache=[pscustomobject]@{UpdatedUtc=(Get-Date).ToUniversalTime().ToString('o');Headers=$head;Rows=$rows;Items=$result;SheetId=$sheetId;Range=$resolvedRange};Write-CcJsonAtomic -Path $script:CcProductsCache -Object $cache|Out-Null;return @($result)
                     }
                 }catch{Write-CcLog "Google Sheets read failed; using local cache: $($_.Exception.Message)" 'WARN' 'Get-CcProducts'}
             }
@@ -117,6 +130,18 @@ function Get-CcProducts {
         if(Test-Path -LiteralPath $script:CcProductsCache){$cache=Get-Content -LiteralPath $script:CcProductsCache -Raw -Encoding UTF8|ConvertFrom-Json;return @($cache.Items)}
         return @()
     }catch{Write-CcError -FunctionName 'Get-CcProducts' -Exception $_.Exception;return @()}
+}
+function Test-CcGoogleProductsConnection {
+    try {
+        $c=Get-CcProductsConfig;$sheetId=Get-CcSheetId $c.SheetUrl $c.SheetId
+        if(-not $sheetId){throw 'Не задан Google Sheets ID/URL.'}
+        if([string]::IsNullOrWhiteSpace($c.ServiceAccountJson)){throw 'Не задан путь к JSON service account.'}
+        $token=Get-CcGoogleAccessToken;if(-not $token){throw 'Не удалось получить Google access token.'}
+        $range=Resolve-CcGoogleSheetRange $token $sheetId $c.Range $c.SheetGid
+        $uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$([uri]::EscapeDataString($range))?majorDimension=ROWS"
+        $resp=Invoke-RestMethod -Uri $uri -Headers @{Authorization="Bearer $token"} -Method Get -TimeoutSec 20 -ErrorAction Stop
+        [pscustomobject]@{Ok=$true;SheetId=$sheetId;Range=$range;Rows=@($resp.values).Count;Message='Google Sheets подключён.'}
+    } catch { Write-CcError -FunctionName 'Test-CcGoogleProductsConnection' -Exception $_.Exception;[pscustomobject]@{Ok=$false;SheetId='';Range='';Rows=0;Message=$_.Exception.Message} }
 }
 function Save-CcProducts {
     param([object[]]$Items)
@@ -134,7 +159,7 @@ function Save-CcProducts {
             $rowNum=$i+1;if($itemsMap.ContainsKey([string]$rowNum)){$it=$itemsMap[[string]$rowNum];if($nameIndex-ge0){while($row.Count-le$nameIndex){$row+='' };$row[$nameIndex]=$it.Name};if($priceIndex-ge0){while($row.Count-le$priceIndex){$row+='' };$row[$priceIndex]=([decimal]$it.Price).ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)};if($qtyIndex-ge0){while($row.Count-le$qtyIndex){$row+='' };$row[$qtyIndex]=([decimal]$it.Quantity).ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)};$rows[$i]=,$row}
         }
         $body=@{range=$cfg.Range;majorDimension='ROWS';values=$rows}|ConvertTo-Json -Depth 20
-        $uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$([uri]::EscapeDataString($cfg.Range))?valueInputOption=USER_ENTERED"
+        $writeRange=if($cache.Range){[string]$cache.Range}else{Resolve-CcGoogleSheetRange $token $sheetId $cfg.Range $cfg.SheetGid};$uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$([uri]::EscapeDataString($writeRange))?valueInputOption=USER_ENTERED"
         Invoke-RestMethod -Uri $uri -Headers @{Authorization="Bearer $token"} -Method Put -ContentType 'application/json' -Body $body -TimeoutSec 30 -ErrorAction Stop|Out-Null
         $cache.Rows=$rows;$cache.Items=@($Items);$cache.UpdatedUtc=(Get-Date).ToUniversalTime().ToString('o');Write-CcJsonAtomic -Path $script:CcProductsCache -Object $cache|Out-Null
         Write-CcLog "Products synchronized to Google Sheets: $(@($Items).Count) items" 'OK' 'Save-CcProducts';return $true
