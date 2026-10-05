@@ -40,7 +40,33 @@ function Register-CcIncomingOrder([object]$Message) {
         $orders=@(Get-CcOrders);$existing=$orders|Where-Object order_id -eq $Message.order_id|Select-Object -First 1
         if($existing){return $existing}
         $o=[pscustomobject]@{order_id=[string]$Message.order_id;sku=[string]$(if($Message.sku){$Message.sku}else{$Message.item_name});item_name=[string]$Message.item_name;quantity=[decimal]$Message.quantity;unit_price=[decimal]$(if($Message.unit_price){$Message.unit_price}else{0});total=[decimal]$(if($Message.total){$Message.total}else{0});payment_type=[string]$Message.payment_type;client_pc=[string]$Message.client_pc;timestamp=[string]$Message.timestamp;status='new';google_sync='pending';received_utc=(Get-Date).ToUniversalTime().ToString('o')}
-        $orders+=$o;Save-CcOrders $orders`n        if((Get-CcRole) -eq 'admin'){if(Write-CcOrderToGoogle $o){$o.google_sync='synced';$orders=@(Get-CcOrders);$saved=$orders|Where-Object order_id -eq $o.order_id|Select-Object -First 1;if($saved){$saved.google_sync='synced';Save-CcOrders $orders|Out-Null}}}`n        Write-CcLog "Incoming order: $($o.order_id) pc=$($o.client_pc) google=$($o.google_sync)" 'OK' 'Register-CcIncomingOrder';return $o
+        $orders+=$o;Save-CcOrders $orders`n        if((Get-CcRole) -eq 'admin'){
+            if(Write-CcOrderToGoogle $o){
+                $o.google_sync='synced'
+                $orders=@(Get-CcOrders)
+                $saved=$orders|Where-Object order_id -eq $o.order_id|Select-Object -First 1
+                if($saved){$saved.google_sync='synced'}
+                Save-CcOrders $orders|Out-Null
+
+                # Google Sheet is the authoritative stock. Decrease it only after
+                # the order itself was successfully recorded in Google.
+                if(Get-Command Update-CcProductStock -ErrorAction SilentlyContinue){
+                    if(Update-CcProductStock -Sku $o.sku -Delta (-1*[decimal]$o.quantity)){
+                        $o.stock_sync='synced'
+                        $orders=@(Get-CcOrders)
+                        $saved=$orders|Where-Object order_id -eq $o.order_id|Select-Object -First 1
+                        if($saved){$saved.stock_sync='synced'}
+                        Save-CcOrders $orders|Out-Null
+                    } else {
+                        $o.stock_sync='pending'
+                        $orders=@(Get-CcOrders)
+                        $saved=$orders|Where-Object order_id -eq $o.order_id|Select-Object -First 1
+                        if($saved){$saved.stock_sync='pending'}
+                        Save-CcOrders $orders|Out-Null
+                    }
+                }
+            }
+        }`n        Write-CcLog "Incoming order: $($o.order_id) pc=$($o.client_pc) google=$($o.google_sync)" 'OK' 'Register-CcIncomingOrder';return $o
     }catch{Write-CcError -FunctionName 'Register-CcIncomingOrder' -Exception $_.Exception;return $null}
 }
 function Set-CcOrderStatus([string]$OrderId,[ValidateSet('new','preparing','delivered','rejected')][string]$Status){try{$items=@(Get-CcOrders);$o=$items|Where-Object order_id -eq $OrderId|Select-Object -First 1;if(-not$o){return $false};$o.status=$Status;$o.updated_utc=(Get-Date).ToUniversalTime().ToString('o');Save-CcOrders $items;return $true}catch{Write-CcError -FunctionName 'Set-CcOrderStatus' -Exception $_.Exception;return $false}}
