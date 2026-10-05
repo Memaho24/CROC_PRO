@@ -109,10 +109,82 @@ function Sync-CcAccounts {
     }
 }
 
+function Normalize-CcGameName([string]$Name){
+    return ([string]$Name).Trim().ToLowerInvariant() -replace '[’‘]',''' -replace '\s+',' '
+}
+function Get-CcAccountPlatformForGame([object]$Game){
+    $launcher=([string]$Game.Launcher).Trim()
+    switch -Regex ($launcher.ToLowerInvariant()){
+        '^roblox' { return 'Roblox' }
+        '^legacy launcher$|^minecraft' { return 'Minecraft Legacy' }
+        default { return $launcher }
+    }
+}
+function Get-CcAccountsForGame {
+    param([object]$Game,[switch]$AvailableOnly)
+    try{
+        $gameName=Normalize-CcGameName ([string]$Game.Name)
+        $platform=Get-CcAccountPlatformForGame $Game
+        $accounts=@(Get-CcAccounts)
+        $matched=@($accounts | Where-Object {
+            $accountPlatform=([string]$_.Platform).Trim()
+            $platformOk=($accountPlatform -ieq $platform) -or
+                (($platform -eq 'Minecraft Legacy') -and ($accountPlatform -ieq 'Minecraft')) -or
+                (($platform -eq 'Roblox') -and ($accountPlatform -ieq 'Roblox - Windows'))
+            if(-not $platformOk){return $false}
+            $assigned=@($_.Games | ForEach-Object {Normalize-CcGameName ([string]$_)})
+            return ($assigned -contains $gameName)
+        })
+        if($AvailableOnly){
+            $matched=@($matched | Where-Object {
+                -not [bool]$_.Banned -and
+                ([string]$_.Status -notin @('occupied','ban')) -and
+                [string]::IsNullOrWhiteSpace([string]$_.UsedBy)
+            })
+        }
+        return $matched
+    }catch{
+        Write-CcError -FunctionName 'Get-CcAccountsForGame' -Exception $_.Exception
+        return @()
+    }
+}
+function Select-CcAccountForGame {
+    param([object]$Game)
+    $available=@(Get-CcAccountsForGame -Game $Game -AvailableOnly)
+    if($available.Count -eq 0){return $null}
+    return ($available | Sort-Object @{Expression={if($_.Status -eq 'free'){0}else{1}}},LastCheck | Select-Object -First 1)
+}
+function Set-CcAccountUsage {
+    param([object]$Account,[string]$UsedBy,[bool]$Occupied)
+    try{
+        if($Occupied){
+            $Account.Status='occupied'
+            $Account.UsedBy=[string]$UsedBy
+            $Account.UsedSince=(Get-Date).ToString('s')
+        }else{
+            $Account.Status='free'
+            $Account.UsedBy=''
+            $Account.UsedSince=''
+        }
+        [void](Save-CcAccounts @(Get-CcAccounts))
+        return $true
+    }catch{
+        Write-CcError -FunctionName 'Set-CcAccountUsage' -Exception $_.Exception
+        return $false
+    }
+}
+function Get-CcGameInstallState([object]$Game){
+    try{
+        $path=[string]$Game.PathCheck
+        if([string]::IsNullOrWhiteSpace($path)){return 'unknown'}
+        if(Test-Path -LiteralPath (Expand-CcPath $path)){return 'installed'}
+        return 'missing'
+    }catch{return 'unknown'}
+}
 function New-CcAccount {
     param([string]$Platform,[string]$Login,[string]$Password,[string]$Comment,[string[]]$Games)
     try {
-        if ($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games')) { throw "Unsupported platform: $Platform" }
+        if ($Platform -notin @('Steam','Riot Games','Battle.net','Epic Games','EA App','Rockstar Games','VK Play','Wargaming','HoYoPlay','Minecraft Legacy','Roblox')) { throw "Unsupported platform: $Platform" }
         if ([string]::IsNullOrWhiteSpace($Login)) { throw 'Login is required' }
 
         $list = @(Get-CcAccounts)
