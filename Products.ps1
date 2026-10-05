@@ -97,6 +97,19 @@ function Get-CcGoogleAccessToken {
         return $script:CcGoogleTokenCache.Token
     }catch{Write-CcLog "Google authentication failed: $($_.Exception.Message)" 'WARN' 'Get-CcGoogleAccessToken';return ''}
 }
+
+function ConvertTo-CcDecimal([object]$Value,[decimal]$Default=0) {
+    try {
+        if($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)){return $Default}
+        $s=([string]$Value).Trim().Replace([char]0xA0,' ')
+        $v=0m
+        if([decimal]::TryParse($s,[Globalization.NumberStyles]::Any,[Globalization.CultureInfo]::InvariantCulture,[ref]$v)){return $v}
+        if([decimal]::TryParse($s,[Globalization.NumberStyles]::Any,[Globalization.CultureInfo]::GetCultureInfo('ru-RU'),[ref]$v)){return $v}
+        $s2=$s.Replace(' ','').Replace(',','.')
+        if([decimal]::TryParse($s2,[Globalization.NumberStyles]::Any,[Globalization.CultureInfo]::InvariantCulture,[ref]$v)){return $v}
+    } catch {}
+    return $Default
+}
 function Get-CcProducts {
     param([switch]$ForceRefresh)
     try{
@@ -117,9 +130,9 @@ function Get-CcProducts {
                         $result=@();$head=@($rows[0]|ForEach-Object{[string]$_})
                         for($i=1;$i-lt$rows.Count;$i++){
                             $r=@($rows[$i]);$map=@{};for($j=0;$j-lt$head.Count;$j++){if($j-lt$r.Count){$map[$head[$j].ToLowerInvariant()]=$r[$j]}}
-                            if($map.Count -gt 0 -and ($map.ContainsKey('name') -or $map.ContainsKey('товар'))){
-                                $name=if($map.ContainsKey('name')){$map['name']}else{$map['товар']};$price=if($map.ContainsKey('price')){$map['price']}else{0};$qty=if($map.ContainsKey('quantity')){$map['quantity']}elseif($map.ContainsKey('qty')){$map['qty']}elseif($map.ContainsKey('остаток')){$map['остаток']}else{0}
-                                $result+=[pscustomobject]@{Name=[string]$name;Price=[decimal]$price;Quantity=[decimal]$qty;Row=$i+1;Sku=[string]$(if($map.ContainsKey('sku')){$map['sku']}else{$name});Category=[string]$(if($map.ContainsKey('category')){$map['category']}else{'Бар'})}
+                            if($map.Count -gt 0 -and ($map.ContainsKey('name') -or $map.ContainsKey('товар') -or $map.ContainsKey('название') -or $map.ContainsKey('наименование'))){
+                                $name=if($map.ContainsKey('name')){$map['name']}elseif($map.ContainsKey('товар')){$map['товар']}elseif($map.ContainsKey('название')){$map['название']}else{$map['наименование']};$price=if($map.ContainsKey('price')){$map['price']}elseif($map.ContainsKey('цена')){$map['цена']}else{0};$qty=if($map.ContainsKey('quantity')){$map['quantity']}elseif($map.ContainsKey('qty')){$map['qty']}elseif($map.ContainsKey('остаток')){$map['остаток']}elseif($map.ContainsKey('количество')){$map['количество']}else{0}
+                                $result+=[pscustomobject]@{Name=[string]$name;Price=(ConvertTo-CcDecimal $price);Quantity=(ConvertTo-CcDecimal $qty);Row=$i+1;Sku=[string]$(if($map.ContainsKey('sku')){$map['sku']}else{$name});Category=[string]$(if($map.ContainsKey('category')){$map['category']}elseif($map.ContainsKey('категория')){$map['категория']}else{'Бар'})}
                             }
                         }
                         $cache=[pscustomobject]@{UpdatedUtc=(Get-Date).ToUniversalTime().ToString('o');Headers=$head;Rows=$rows;Items=$result;SheetId=$sheetId;Range=$resolvedRange};Write-CcJsonAtomic -Path $script:CcProductsCache -Object $cache|Out-Null;return @($result)
