@@ -169,4 +169,74 @@ function Set-CcProduct {
     param([int]$Row,[string]$Name,[decimal]$Price,[decimal]$Quantity,[string]$Category='')
     $items=@(Get-CcProducts);$x=$items|Where-Object Row -eq $Row|Select-Object -First 1;if(-not$x){return $false};if($Name){$x.Name=$Name};$x.Price=$Price;$x.Quantity=$Quantity;if($Category){$x.Category=$Category};return (Save-CcProducts $items)
 }
+
+function Update-CcProductStock {
+    param([string]$Sku,[decimal]$Delta)
+    try {
+        if((Get-CcRole) -ne 'admin'){throw 'Изменять остаток может только администратор.'}
+        if([string]::IsNullOrWhiteSpace($Sku)){throw 'SKU товара не задан.'}
+        if($Delta -eq 0){return $true}
+
+        $cfg=Get-CcProductsConfig
+        $sheetId=Get-CcSheetId $cfg.SheetUrl $cfg.SheetId
+        if(-not $sheetId){throw 'PRODUCT_SHEET_URL/ID не задан.'}
+        $token=Get-CcGoogleAccessToken
+        if(-not $token){throw 'Google Sheets недоступен.'}
+
+        # Serialize stock mutations inside the admin process so two incoming UDP orders
+        # cannot calculate the new quantity from the same stale local value.
+        $lockPath=Join-Path $script:CcProductsDir 'stock-update.lock'
+        $lockStream=$null
+        try {
+            $lockStream=[IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+
+            $items=@(Get-CcProducts -ForceRefresh)
+            $item=$items|Where-Object {[string]$_.Sku -eq $Sku}|Select-Object -First 1
+            if(-not $item){throw "Товар с SKU '$Sku' не найден."}
+
+            $newQty=[decimal]$item.Quantity+$Delta
+            if($newQty -lt 0){throw "Недостаточно товара '$($item.Name)'. Остаток: $($item.Quantity), требуется: $([math]::Abs($Delta))."}
+
+            $cache=Get-Content -LiteralPath $script:CcProductsCache -Raw -Encoding UTF8|ConvertFrom-Json
+            $headers=@($cache.Headers)
+            $qtyIndex=-1
+            for($j=0;$j-lt$headers.Count;$j++){
+                if(([string]$headers[$j]).Trim().ToLowerInvariant() -in @('quantity','qty','остаток')){$qtyIndex=$j;break}
+            }
+            if($qtyIndex -lt 0){throw 'В таблице не найден столбец остатка (Quantity/Qty/Остаток).'}
+
+            function ConvertTo-GoogleColumnName([int]$Index) {
+                $n=$Index+1;$s=''
+                while($n -gt 0){$n--; $s=[char](65+($n%26))+$s; $n=[math]::Floor($n/26)}
+                return $s
+            }
+
+            $resolved=if($cache.Range){[string]$cache.Range}else{Resolve-CcGoogleSheetRange $token $sheetId $cfg.Range $cfg.SheetGid}
+            if($resolved -notmatch '!'){
+                $resolved=Resolve-CcGoogleSheetRange $token $sheetId $cfg.Range $cfg.SheetGid
+            }
+            $sheetPart=if($resolved -match '^(.*)!'){ $Matches[1] } else { throw 'Не удалось определить лист Google Sheets.' }
+            $col=ConvertTo-GoogleColumnName $qtyIndex
+            $rowNumber=[int]$item.Row
+            $a1="$sheetPart!$col$rowNumber"
+
+            $body=@{values=@(@(([decimal]$newQty).ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)))}|ConvertTo-Json -Depth 10
+            $uri="https://sheets.googleapis.com/v4/spreadsheets/$sheetId/values/$([uri]::EscapeDataString($a1))?valueInputOption=USER_ENTERED"
+            Invoke-RestMethod -Uri $uri -Headers @{Authorization="Bearer $token"} -Method Put -ContentType 'application/json' -Body $body -TimeoutSec 20 -ErrorAction Stop|Out-Null
+
+            $item.Quantity=$newQty
+            $cache.Items=@($items)
+            $cache.UpdatedUtc=(Get-Date).ToUniversalTime().ToString('o')
+            Write-CcJsonAtomic -Path $script:CcProductsCache -Object $cache|Out-Null
+            Write-CcLog "Stock updated: sku=$Sku delta=$Delta quantity=$newQty" 'OK' 'Update-CcProductStock'
+            return $true
+        } finally {
+            if($null -ne $lockStream){$lockStream.Dispose()}
+        }
+    } catch {
+        Write-CcError -FunctionName 'Update-CcProductStock' -Exception $_.Exception
+        return $false
+    }
+}
+
 function Test-CcAdminAccessForData { try { $cfg=Get-CcConfig;return [bool]($cfg['ROLE'] -eq 'admin') } catch { return $false } }
