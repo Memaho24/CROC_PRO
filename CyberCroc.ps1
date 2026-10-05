@@ -303,7 +303,27 @@ $gameLaunch.Add_Click({
         catch{Show-CcErrorPopup 'Запуск игры' $_.Exception}
     }else{Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.')}
 })
-$gameUpdate.Add_Click({Toast 'Игры' 'Проверка обновлений игры передана лаунчеру.' 'INFO'})
+$gameUpdate.Add_Click({
+    if(-not $gameList.SelectedItems.Count){Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.');return}
+    $g=$gameList.SelectedItems[0].Tag
+    try{
+        $progressLabel.Text="Игра: $($g.Name) — поиск аккаунта..."
+        $progress.Visible=$true
+        $account=Select-CcAccountForGame $g
+        if($null -eq $account){throw "В базе нет свободного аккаунта для обновления «$($g.Name)»."}
+        Write-CcLog "Game update account selected: $($g.Name) -> $($account.Platform)/$($account.Login)" 'INFO' 'Game-Update'
+        $launcher=Install-CcGameLauncher $g
+        if($account.Platform -eq 'Steam' -and $launcher){[void](Start-CcAccountSession $account)}
+        $info=Get-CcGameLauncherInfo ([string]$g.Launcher)
+        if($g.Launcher -eq 'Steam' -and $g.AppID -and $launcher){Start-Process "steam://rungameid/$($g.AppID)"}
+        elseif($g.Launcher -eq 'Epic Games' -and $launcher){Start-Process 'com.epicgames.launcher://apps'}
+        elseif($g.Launcher -match '^Roblox'){Start-Process 'ms-windows-store://pdp/?productid=9PMF91N3LZ3M'}
+        elseif($g.Launcher -match '^Legacy Launcher|^Minecraft'){Start-Process 'https://llaun.ch/EN'}
+        Set-CcAccountUsage -Account $account -UsedBy $env:COMPUTERNAME -Occupied $true | Out-Null
+        Toast 'Игры' "$($g.Name): аккаунт $($account.Login) выбран, откройте обновление в $($info.Name)." 'OK'
+    }catch{Show-CcErrorPopup 'Обновление игры' $_.Exception}
+    finally{$progress.Visible=$false;$progressLabel.Text='Выполняется операция...'}
+})
 function Save-GameCatalogToFile{param([object[]]$Catalog);try{$path=Join-Path $Root 'games.txt';$lines=@('# CyberCroc game inventory','# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion|Price');foreach($g in $Catalog){$lines+=('{0}|{1}|{2}|{3}|{4}||{5}' -f $g.Name,$g.PathCheck,([string]$g.Launcher).ToLowerInvariant(),$g.Launcher,$g.AppID,$g.Price)};Set-Content -LiteralPath $path -Value $lines -Encoding UTF8;Write-CcLog "Game catalog saved: $($Catalog.Count) items" 'OK' 'Save-GameCatalogToFile';return $true}catch{Write-CcError -FunctionName 'Save-GameCatalogToFile' -Exception $_.Exception;return $false}}
 function Show-CustomGameDialog{
 try{
