@@ -36,9 +36,10 @@ function Start-Gui {
 Write-WatchdogLog 'Watchdog started.'
 while($true){
     try{
-        $pid=0
-        if(Test-Path -LiteralPath $PidFile){try{$pid=[int](Get-Content -LiteralPath $PidFile -Raw).Trim()}catch{$pid=0}}
-        $proc=Get-GuiProcess $pid
+        # Do not use the variable name $PID here: PowerShell reserves $PID as a read-only automatic variable.
+        $processId=0
+        if(Test-Path -LiteralPath $PidFile){try{$processId=[int](Get-Content -LiteralPath $PidFile -Raw).Trim()}catch{$processId=0}}
+        $proc=Get-GuiProcess $processId
         $heartbeatOk=$false
         if(Test-Path -LiteralPath $Heartbeat){
             $age=((Get-Date).ToUniversalTime()-(Get-Item -LiteralPath $Heartbeat).LastWriteTimeUtc).TotalSeconds
