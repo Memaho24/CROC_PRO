@@ -245,7 +245,7 @@ $gameGrid=New-Object Windows.Forms.TableLayoutPanel;$gameGrid.Dock='Fill';$gameG
 [void]$gameGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,70)));[void]$gameGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,30)))
 [void]$gameGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,52)));[void]$gameGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$gameGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,76)))
 $gameSearch=New-Object Windows.Forms.TextBox;$gameSearch.Dock='Fill';$gameSearch.Text='Поиск игры...';$gameSearch.Font=New-Object Drawing.Font('Segoe UI',12);Apply-ControlTheme $gameSearch;$gameGrid.Controls.Add($gameSearch,0,0)
-$gameFilter=New-Object Windows.Forms.ComboBox;$gameFilter.DropDownStyle='DropDownList';[void]$gameFilter.Items.AddRange(@('Все','Steam','Epic Games','Riot Games','Battle.net'));$gameFilter.SelectedIndex=0;$gameFilter.Dock='Fill';Apply-ControlTheme $gameFilter;$gameGrid.Controls.Add($gameFilter,1,0)
+$gameFilter=New-Object Windows.Forms.ComboBox;$gameFilter.DropDownStyle='DropDownList';[void]$gameFilter.Items.AddRange(@('Все','Steam','Epic Games','Riot Games','Battle.net','EA App','Rockstar Games','VK Play','Wargaming','HoYoPlay','Legacy Launcher','Roblox - Windows'));$gameFilter.SelectedIndex=0;$gameFilter.Dock='Fill';Apply-ControlTheme $gameFilter;$gameGrid.Controls.Add($gameFilter,1,0)
 $gameList=New-Object Windows.Forms.ListView;$gameList.Dock='Fill';$gameList.View='Details';$gameList.FullRowSelect=$true;$gameList.MultiSelect=$false;$gameList.BackColor=$C.Control;$gameList.ForeColor=$C.Fg;[void]$gameList.Columns.Add('Игра',260);[void]$gameList.Columns.Add('Лаунчер',120);[void]$gameList.Columns.Add('Цена',100);[void]$gameList.Columns.Add('Установлена',120);$gameGrid.Controls.Add($gameList,0,1)
 $gameInfo=New-Object Windows.Forms.TextBox;$gameInfo.Multiline=$true;$gameInfo.ReadOnly=$true;$gameInfo.Dock='Fill';$gameInfo.BackColor=$C.Panel;$gameInfo.ForeColor=$C.Fg;$gameInfo.Text='Выберите игру.`r`n`r`nМожно установить её через установленный лаунчер. Для Steam используется официальный Steam URI, для Epic/Riot/Battle.net — запуск соответствующего лаунчера.';$gameGrid.Controls.Add($gameInfo,1,1)
 $gameButtons=New-Flow;$gameInstall=New-Button 'УСТАНОВКА  УСТАНОВИТЬ' 180 58;$gameLaunch=New-Button 'ЗАПУСК  ЗАПУСТИТЬ' 170 58;$gameUpdate=New-Button 'ОБНОВЛЕНИЕ  ОБНОВИТЬ' 160 58;$gameLan=New-Button 'LAN  ЛОКАЛЬНАЯ СЕТЬ' 190 58;$gameAdd=New-Button '+ Своя игра' 140 58;$gameButtons.Controls.Add($gameInstall);$gameButtons.Controls.Add($gameLaunch);$gameButtons.Controls.Add($gameUpdate);$gameButtons.Controls.Add($gameLan);$gameButtons.Controls.Add($gameAdd);$gameGrid.Controls.Add($gameButtons,0,2);$gameGrid.SetColumnSpan($gameButtons,2)
@@ -274,8 +274,27 @@ if($script:GameCatalog.Count -eq 0){Write-CcLog 'games.txt пуст или от�
 Load-GameCatalog
 function Refresh-GameCatalog{try{$gameList.Items.Clear();$q=$gameSearch.Text;if($q -eq 'Поиск игры...'){$q=''};$f=[string]$gameFilter.Text;foreach($g in $script:GameCatalog){if($q -and $g.Name -notlike "*$q*"){continue};if($f -ne 'Все' -and $g.Launcher -ne $f){continue};$installed='Нет';if($g.Launcher -eq 'Steam' -and (Get-CcSteamExe)){$installed='Лаунчер найден'};$i=[Windows.Forms.ListViewItem]::new([string]$g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-GameCatalog' -Exception $_.Exception}}
 $gameSearch.Add_GotFocus({if($gameSearch.Text -eq 'Поиск игры...'){$gameSearch.Text='';$gameSearch.ForeColor=$C.Fg}});$gameSearch.Add_TextChanged({Refresh-GameCatalog});$gameFilter.Add_SelectedIndexChanged({Refresh-GameCatalog});$gameLan.Add_Click({try{Write-CcLog 'LAN game scan requested' 'INFO' 'UI';Scan-LanGames}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}});$gameAdd.Add_Click({try{Show-CustomGameDialog}catch{Show-CcErrorPopup 'Своя игра' $_.Exception}})
-$gameInstall.Add_Click({if(-not $gameList.SelectedItems.Count){Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.');return};$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://install/$($g.AppID)"}elseif($g.Launcher -eq 'Epic Games'){Start-Process 'com.epicgames.launcher://apps'}elseif($g.Launcher -eq 'Riot Games'){$exe=Get-CcLauncherExe 'RiotClientServices.exe';if($exe){Start-Process $exe}else{throw 'Riot Client не найден.'}}else{Start-Process 'https://www.blizzard.com/'};Toast 'Игры' "Открыт лаунчер: $($g.Launcher)" 'OK'}catch{Show-CcErrorPopup 'Установка игры' $_.Exception}})
-$gameLaunch.Add_Click({if($gameList.SelectedItems.Count){$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://rungameid/$($g.AppID)"}else{throw "Запуск $($g.Name) требует лаунчер $($g.Launcher)."}}catch{Show-CcErrorPopup 'Запуск игры' $_.Exception}}else{Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.')}})
+$gameInstall.Add_Click({
+    if(-not $gameList.SelectedItems.Count){Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.');return}
+    $g=$gameList.SelectedItems[0].Tag
+    try{
+        $progressLabel.Text="Игра: $($g.Name) — установка лаунчера..."
+        $progress.Visible=$true
+        $launcher=Install-CcGameLauncher $g
+        if($g.Launcher -eq 'Steam' -and $g.AppID -and $launcher){Start-Process "steam://install/$($g.AppID)"}
+        elseif($g.Launcher -eq 'Epic Games' -and $launcher){Start-Process 'com.epicgames.launcher://apps'}
+        $info=Get-CcGameLauncherInfo ([string]$g.Launcher)
+        Toast 'Игры' "$($g.Name): готовится $($info.Name)." 'OK'
+    }catch{Show-CcErrorPopup 'Установка игры' $_.Exception}
+    finally{$progress.Visible=$false;$progressLabel.Text='Выполняется операция...'}
+})
+$gameLaunch.Add_Click({
+    if($gameList.SelectedItems.Count){
+        $g=$gameList.SelectedItems[0].Tag
+        try{Start-CcGame $g;Toast 'Игры' "Запуск: $($g.Name)" 'OK'}
+        catch{Show-CcErrorPopup 'Запуск игры' $_.Exception}
+    }else{Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.')}
+})
 $gameUpdate.Add_Click({Toast 'Игры' 'Проверка обновлений игры передана лаунчеру.' 'INFO'})
 function Save-GameCatalogToFile{param([object[]]$Catalog);try{$path=Join-Path $Root 'games.txt';$lines=@('# CyberCroc game inventory','# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion|Price');foreach($g in $Catalog){$lines+=('{0}|{1}|{2}|{3}|{4}||{5}' -f $g.Name,$g.PathCheck,([string]$g.Launcher).ToLowerInvariant(),$g.Launcher,$g.AppID,$g.Price)};Set-Content -LiteralPath $path -Value $lines -Encoding UTF8;Write-CcLog "Game catalog saved: $($Catalog.Count) items" 'OK' 'Save-GameCatalogToFile';return $true}catch{Write-CcError -FunctionName 'Save-GameCatalogToFile' -Exception $_.Exception;return $false}}
 function Show-CustomGameDialog{
