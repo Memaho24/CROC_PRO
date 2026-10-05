@@ -14,6 +14,15 @@ foreach($f in $psFiles){
 }
 $ini=Get-Content -LiteralPath (Join-Path $Root 'config.ini') -Raw -Encoding UTF8
 if($ini -match '(?im)^\s*ADMIN_PASSWORD\s*='){ $fail+='config.ini contains plaintext ADMIN_PASSWORD' } else {$pass++}
+$vbsPath=Join-Path $Root 'launcher.vbs'
+try {
+    $bytes=[IO.File]::ReadAllBytes($vbsPath)
+    if($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF){$fail+='launcher.vbs contains a UTF-8 BOM; Windows Script Host may report 800A0408 at line 1'}
+    if($bytes.Length -ge 2 -and (($bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) -or ($bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF))){$fail+='launcher.vbs contains a UTF-16 BOM; use ANSI/UTF-8 without BOM for WScript compatibility'}
+    if($bytes.Length -eq 0){$fail+='launcher.vbs is empty'}
+    else {$pass++}
+}catch{$fail+="launcher.vbs binary validation failed: $($_.Exception.Message)"}
+
 $version=(Get-Content -LiteralPath (Join-Path $Root 'version.txt') -Raw).Trim()
 if($version -ne '0.5.0'){$fail+="Unexpected version: $version"}else{$pass++}
 Write-Host "PASS=$pass FAIL=$($fail.Count)"
