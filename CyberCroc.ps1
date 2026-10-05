@@ -406,7 +406,58 @@ $barGrid=New-Object Windows.Forms.TableLayoutPanel;$barGrid.Dock='Fill';$barGrid
 $barList=New-Object Windows.Forms.ListView;$barList.View='Details';$barList.FullRowSelect=$true;$barList.Dock='Fill';$barList.BackColor=$C.Control;$barList.ForeColor=$C.Fg;[void]$barList.Columns.Add('Товар',260);[void]$barList.Columns.Add('Цена',100);[void]$barList.Columns.Add('Остаток',100);[void]$barList.Columns.Add('Категория',150);$barGrid.Controls.Add($barList,0,0)
 $barOrders=New-Object Windows.Forms.ListView;$barOrders.View='Details';$barOrders.FullRowSelect=$true;$barOrders.Dock='Fill';$barOrders.BackColor=$C.Control;$barOrders.ForeColor=$C.Fg;[void]$barOrders.Columns.Add('ПК',100);[void]$barOrders.Columns.Add('Товар',180);[void]$barOrders.Columns.Add('Сумма',90);[void]$barOrders.Columns.Add('Статус',100);$barGrid.Controls.Add($barOrders,1,0)
 $barBtns=New-Flow;$barOrderBtn=New-Button 'ЗАКАЗАТЬ' 170 56;$barConfirm=New-Button 'ПОДТВЕРДИТЬ' 180 56;$barReject=New-Button 'ОТКЛОНИТЬ' 160 56;$barRefresh=New-Button 'ОБНОВИТЬ' 160 56;$barPrice=New-Button 'ЦЕНА' 120 56;$barBalance=New-Button 'БАЛАНС' 140 56;foreach($b in @($barOrderBtn,$barConfirm,$barReject,$barRefresh,$barPrice,$barBalance)){$barBtns.Controls.Add($b)};$barGrid.Controls.Add($barBtns,0,1);$barGrid.SetColumnSpan($barBtns,2)
-function Refresh-BarPage{try{$barList.Items.Clear();foreach($x in @(Get-CcBarMenu|Where-Object { $p=$_.PSObject.Properties['Available']; if($null -eq $p){$true}else{[bool]$p.Value} })){$i=[Windows.Forms.ListViewItem]::new([string]$x.Name);[void]$i.SubItems.Add(([decimal]$x.Price).ToString('0.00'));[void]$i.SubItems.Add(([decimal]$(if($x.PSObject.Properties.Name -contains 'Stock'){$x.Stock}else{0})).ToString('0'));[void]$i.SubItems.Add($x.Category);$i.Tag=$x;[void]$barList.Items.Add($i)};$barOrders.Items.Clear();foreach($o in @(Get-CcBarOrders|Sort-Object Created -Descending|Select-Object -First 100)){$i=[Windows.Forms.ListViewItem]::new([string]$o.Pc);[void]$i.SubItems.Add($o.Item);[void]$i.SubItems.Add(([decimal]$o.Total).ToString('0.00'));[void]$i.SubItems.Add($o.Status);$i.Tag=$o;[void]$barOrders.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-BarPage' -Exception $_.Exception;Show-CcErrorPopup 'Бар' $_.Exception}}
+function ConvertTo-CcBarDecimal([object]$Value,[decimal]$Default=0){
+    try{
+        if($null -eq $Value){return $Default}
+        if($Value -is [System.Array]){
+            $items=@($Value)
+            if($items.Count -eq 0){return $Default}
+            $Value=$items[0]
+        }
+        $text=[string]$Value
+        if([string]::IsNullOrWhiteSpace($text)){return $Default}
+        $text=$text.Trim().Replace([string][char]0xA0,' ').Replace(' ','')
+        $parsed=[decimal]0
+        if([decimal]::TryParse($text,[Globalization.NumberStyles]::Number,[Globalization.CultureInfo]::GetCultureInfo('ru-RU'),[ref]$parsed)){return $parsed}
+        if([decimal]::TryParse($text,[Globalization.NumberStyles]::Number,[Globalization.CultureInfo]::InvariantCulture,[ref]$parsed)){return $parsed}
+        return $Default
+    }catch{return $Default}
+}
+function Refresh-BarPage{
+    try{
+        $barList.Items.Clear()
+        foreach($x in @(Get-CcBarMenu|Where-Object {
+            $p=$_.PSObject.Properties['Available']
+            if($null -eq $p){$true}else{
+                $v=$p.Value
+                if($v -is [System.Array]){$v=@($v)[0]}
+                [string]$v -notin @('0','false','False','нет','Нет')
+            }
+        })){
+            $i=[Windows.Forms.ListViewItem]::new([string]$x.Name)
+            $price=ConvertTo-CcBarDecimal $x.Price
+            $stock=0
+            if($x.PSObject.Properties.Name -contains 'Stock'){$stock=ConvertTo-CcBarDecimal $x.Stock}
+            [void]$i.SubItems.Add($price.ToString('0.00'))
+            [void]$i.SubItems.Add($stock.ToString('0.##'))
+            [void]$i.SubItems.Add([string]$x.Category)
+            $i.Tag=$x
+            [void]$barList.Items.Add($i)
+        }
+        $barOrders.Items.Clear()
+        foreach($o in @(Get-CcBarOrders|Sort-Object Created -Descending|Select-Object -First 100)){
+            $i=[Windows.Forms.ListViewItem]::new([string]$o.Pc)
+            [void]$i.SubItems.Add([string]$o.Item)
+            [void]$i.SubItems.Add((ConvertTo-CcBarDecimal $o.Total).ToString('0.00'))
+            [void]$i.SubItems.Add([string]$o.Status)
+            $i.Tag=$o
+            [void]$barOrders.Items.Add($i)
+        }
+    }catch{
+        Write-CcError -FunctionName 'Refresh-BarPage' -Exception $_.Exception
+        Show-CcErrorPopup 'Бар' $_.Exception
+    }
+}
 $barOrderBtn.Add_Click({try{if(-not $barList.SelectedItems.Count){throw 'Выберите товар.'};$o=New-CcBarOrder ([Environment]::MachineName) $barList.SelectedItems[0].Tag 1;if(-not$o){throw 'Не удалось создать заказ.'};Refresh-BarPage;Toast 'Бар' 'Заказ отправлен оператору.' 'OK'}catch{Show-CcErrorPopup 'Заказ' $_.Exception}})
 $barConfirm.Add_Click({try{if(-not $barOrders.SelectedItems.Count){throw 'Выберите заказ.'};if(-not(Confirm-CcBarOrder $barOrders.SelectedItems[0].Tag.Id)){throw 'Не удалось подтвердить заказ. Проверьте баланс и склад.'};Refresh-BarPage;Toast 'Бар' 'Заказ подтверждён, баланс списан.' 'OK'}catch{Show-CcErrorPopup 'Бар' $_.Exception}})
 $barReject.Add_Click({try{if(-not $barOrders.SelectedItems.Count){throw 'Выберите заказ.'};[void](Reject-CcBarOrder $barOrders.SelectedItems[0].Tag.Id);Refresh-BarPage}catch{Show-CcErrorPopup 'Бар' $_.Exception}});$barBalance.Add_Click({try{if(-not(Request-CcAdminAccess)){return};$pc=if($barOrders.SelectedItems.Count){[string]$barOrders.SelectedItems[0].Tag.Pc}else{[Environment]::MachineName};$bal=Get-CcBarBalances;$current=if($bal.ContainsKey($pc)){$bal[$pc]}else{0};$d=New-Object Windows.Forms.Form;$d.Text='Баланс ПК';$d.Size=New-Object Drawing.Size(380,180);$t=New-Object Windows.Forms.TextBox;$t.Text=[string]$current;$t.Location=New-Object Drawing.Point(20,20);$t.Width=300;Apply-ControlTheme $t;$d.Controls.Add($t);$ok=New-Button 'Сохранить' 140 50;$ok.Location=New-Object Drawing.Point(20,65);$ok.Add_Click({Set-CcBarBalance $pc ([decimal]$t.Text)|Out-Null;$d.Close()});$d.Controls.Add($ok);[void]$d.ShowDialog($form);Refresh-BarPage}catch{Show-CcErrorPopup 'Баланс' $_.Exception}});$barRefresh.Add_Click({Refresh-BarPage})
