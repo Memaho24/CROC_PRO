@@ -110,7 +110,7 @@ function Sync-CcAccounts {
 }
 
 function Normalize-CcGameName([string]$Name){
-    return ([string]$Name).Trim().ToLowerInvariant() -replace '[’‘]',''' -replace '\s+',' '
+    return ([string]$Name).Trim().ToLowerInvariant() -replace '[’‘]',"'" -replace '\s+',' '
 }
 function Get-CcAccountPlatformForGame([object]$Game){
     $launcher=([string]$Game.Launcher).Trim()
