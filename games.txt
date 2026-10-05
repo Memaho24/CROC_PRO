@@ -1,9 +1,30 @@
 # CyberCroc game inventory
-# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion
-# Steam is detected by AppID and appmanifest files.
+# Format: Name|PathCheck|Source|Launcher|AppID|MinVersion|Price
+# Launcher bootstrap is handled by tools/Games.ps1. Minecraft intentionally uses Legacy Launcher.
+
 Counter-Strike 2|C:\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe|steam||730||Бесплатно
 Dota 2|C:\Steam\steamapps\common\dota 2 beta\game\bin\win64\dota2.exe|steam||570||Бесплатно
 PUBG: Battlegrounds|C:\Steam\steamapps\common\PUBG\TslGame\Binaries\Win64\TslGame.exe|steam||578080||Бесплатно
-League of Legends|C:\Riot Games\League of Legends\LeagueClient.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe|||Бесплатно
-Valorant|C:\Riot Games\VALORANT\live\VALORANT.exe|riot|C:\Riot Games\Riot Client\RiotClientServices.exe|||Бесплатно
-Warface|C:\VK Play\Warface\Bin64Release\Game.exe|vk||||Бесплатно
+Apex Legends|C:\Steam\steamapps\common\Apex Legends\r5apex.exe|steam||1172470||Бесплатно
+Rust|C:\Steam\steamapps\common\Rust\RustClient.exe|steam||252490||Платная
+Grand Theft Auto V|C:\Games\Grand Theft Auto V\GTA5.exe|rockstar|Rockstar Games|||Платная
+Red Dead Redemption 2|C:\Games\Red Dead Redemption 2\RDR2.exe|rockstar|Rockstar Games|||Платная
+Fortnite|C:\Epic Games\Fortnite\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe|epic|Epic Games|||Бесплатно
+Rocket League|C:\Epic Games\rocketleague\Binaries\Win64\RocketLeague.exe|epic|Epic Games|||Бесплатно
+Fall Guys|C:\Epic Games\FallGuys\FallGuys_client_game.exe|epic|Epic Games|||Бесплатно
+League of Legends|C:\Riot Games\League of Legends\LeagueClient.exe|riot|Riot Games|||Бесплатно
+Valorant|C:\Riot Games\VALORANT\live\VALORANT.exe|riot|Riot Games|||Бесплатно
+Overwatch 2|C:\Program Files (x86)\Overwatch\_retail_\Overwatch.exe|battle.net|Battle.net|||Бесплатно
+Hearthstone|C:\Program Files (x86)\Hearthstone\Hearthstone.exe|battle.net|Battle.net|||Бесплатно
+EA Sports FC|C:\Program Files\EA Games\EA SPORTS FC\FC.exe|ea|EA App|||Платная
+The Sims 4|C:\Program Files\EA Games\The Sims 4\Game\Bin\TS4_x64.exe|ea|EA App|||Бесплатно
+Warface|C:\VK Play\Warface\Bin64Release\Game.exe|vk|VK Play|||Бесплатно
+World of Tanks|C:\Games\World_of_Tanks\win64\WorldOfTanks.exe|wargaming|Wargaming|||Бесплатно
+World of Warships|C:\Games\World_of_Warships\win64\WorldOfWarships.exe|wargaming|Wargaming|||Бесплатно
+Genshin Impact|C:\Games\Genshin Impact\GenshinImpact.exe|hoyoplay|HoYoPlay|||Бесплатно
+Honkai: Star Rail|C:\Games\StarRail\Games\StarRail.exe|hoyoplay|HoYoPlay|||Бесплатно
+Minecraft|C:\Games\Minecraft|minecraft|Legacy Launcher|||Платная
+Roblox|C:\Program Files (x86)\Roblox\Versions|roblox|Roblox - Windows|||Бесплатно
+Among Us|C:\Steam\steamapps\common\Among Us\Among Us.exe|steam||945360||Платная
+Terraria|C:\Steam\steamapps\common\Terraria\Terraria.exe|steam||105600||Платная
+War Thunder|C:\Steam\steamapps\common\War Thunder\aces.exe|steam||236390||Бесплатно
