@@ -748,7 +748,54 @@ $nodeList=New-Object Windows.Forms.ListView;$nodeList.View='Tile';$nodeList.Full
 $hallInfo=New-Object Windows.Forms.TextBox;$hallInfo.Multiline=$true;$hallInfo.ReadOnly=$true;$hallInfo.Dock='Fill';$hallInfo.BackColor=$C.Panel;$hallInfo.ForeColor=$C.Fg;$hallInfo.Text='Выберите ПК для действий.';$hallGrid.Controls.Add($hallInfo,1,0)
 $hallActions=New-Flow;$msgText=New-Object Windows.Forms.TextBox;$msgText.Width=280;$msgText.Height=52;$msgText.Text='';Apply-ControlTheme $msgText;$msgText.ToolTipText='Сообщение для всех или выбранного ПК';$hallActions.Controls.Add($msgText)
 $sendMsg=New-Button 'РАССЫЛКА' 150 56;$blockPc=New-Button 'БЛОКИРОВКА' 160 56;$unblockPc=New-Button 'РАЗБЛОКИРОВКА' 170 56;$fleetBtn=New-Button 'РАЗОСЛАТЬ КОНФИГ' 190 56;$emergency=New-Button 'АВАРИЯ' 140 56;$emergency.BackColor=$C['Danger'];$emergency.ForeColor=$C.White;foreach($b in @($sendMsg,$blockPc,$unblockPc,$fleetBtn,$emergency)){$hallActions.Controls.Add($b)};$hallGrid.Controls.Add($hallActions,0,1);$hallGrid.SetColumnSpan($hallActions,2)
-function Refresh-HallPage {try{$selectedPc='';if($nodeList.SelectedItems.Count){$selectedPc=[string]$nodeList.SelectedItems[0].Tag.PcId};$nodes=@(Get-CcKnownNodes);$expected=[int](Get-CcConfig)['EXPECTED_PCS'];if($expected -lt 1){$expected=50};if($nodes.Count -eq 0 -or @($nodes|Where-Object{$_.PcId -notmatch '^PC-\d+$nodeList.BeginUpdate();$nodeList.Items.Clear();foreach($n in $nodes){$state=if($n.Online){'ONLINE'}else{'OFFLINE'};$label="$($n.PcId)  |  $state  |  $($n.Zone)";$i=[Windows.Forms.ListViewItem]::new([string]$label);$i.ToolTipText="Хост: $($n.Host)`r`nВерсия: $($n.Version)";$i.Tag=$n;[void]$nodeList.Items.Add($i);if($selectedPc -and $selectedPc -eq [string]$n.PcId){$i.Selected=$true}};$nodeList.EndUpdate();if(-not $selectedPc){$hallInfo.Text="Обнаружено $($nodes.Count), онлайн $online из плановых $expected.`r`nВыберите плитку ПК для управления."}}catch{try{$nodeList.EndUpdate()}catch{};Write-CcError -FunctionName 'Refresh-HallPage' -Exception $_.Exception}}
+function Refresh-HallPage {
+    try {
+        $selectedPc = ''
+        if ($nodeList.SelectedItems.Count) { $selectedPc = [string]$nodeList.SelectedItems[0].Tag.PcId }
+        $nodes = @(Get-CcKnownNodes)
+        $hallConfig = Get-CcConfig
+        $expected = 50
+        try { if ($hallConfig.ContainsKey('EXPECTED_PCS')) { $expected = [int]$hallConfig['EXPECTED_PCS'] } } catch {}
+        if ($expected -lt 1) { $expected = 50 }
+
+        $useNumberedLayout = ($nodes.Count -eq 0)
+        if ($nodes.Count -gt 0) {
+            $unnumbered = @($nodes | Where-Object { [string]$_.PcId -notmatch '^PC-\d+$' })
+            if ($unnumbered.Count -eq 0) { $useNumberedLayout = $true }
+        }
+        if ($useNumberedLayout) {
+            $known = @{}
+            foreach ($node in $nodes) { $known[[string]$node.PcId] = $true }
+            for ($pcIndex = 1; $pcIndex -le $expected; $pcIndex++) {
+                $placeholder = 'PC-{0:D2}' -f $pcIndex
+                if (-not $known.ContainsKey($placeholder)) {
+                    $nodes += [pscustomobject]@{
+                        PcId = $placeholder; Role = 'client'; Zone = 'standard'
+                        Version = '—'; Host = 'Не обнаружен'; Address = ''
+                        LastSeenUtc = [DateTime]::UtcNow.AddDays(-1); Online = $false
+                    }
+                }
+            }
+        }
+        $nodes = @($nodes | Sort-Object Zone, PcId)
+        $online = @($nodes | Where-Object { $_.Online }).Count
+        $nodeList.BeginUpdate()
+        $nodeList.Items.Clear()
+        foreach ($node in $nodes) {
+            $state = if ($node.Online) { 'ONLINE' } else { 'OFFLINE' }
+            $item = [Windows.Forms.ListViewItem]::new("$($node.PcId)  |  $state  |  $($node.Zone)")
+            $item.ToolTipText = "Хост: $($node.Host)`r`nВерсия: $($node.Version)"
+            $item.Tag = $node
+            [void]$nodeList.Items.Add($item)
+            if ($selectedPc -and $selectedPc -eq [string]$node.PcId) { $item.Selected = $true }
+        }
+        $nodeList.EndUpdate()
+        if (-not $selectedPc) { $hallInfo.Text = "Обнаружено $($nodes.Count), онлайн $online из плановых $expected.`r`nВыберите плитку ПК для управления." }
+    } catch {
+        try { $nodeList.EndUpdate() } catch {}
+        Write-CcError -FunctionName 'Refresh-HallPage' -Exception $_.Exception
+    }
+}
 $nodeList.Add_SelectedIndexChanged({if($nodeList.SelectedItems.Count){$n=$nodeList.SelectedItems[0].Tag;$hallInfo.Text="PC: $($n.PcId)`r`nСостояние: $(if($n.Online){'онлайн'}else{'нет связи'})`r`nЗона: $($n.Zone)`r`nХост: $($n.Host)`r`nВерсия: $($n.Version)`r`nПоследний beacon: $($n.LastSeenUtc.ToLocalTime().ToString('HH:mm:ss'))"}})
 $sendMsg.Add_Click({try{$msg=[string]$msgText.Text.Trim();if(-not$msg){throw 'Введите сообщение.'};$target='*';if($nodeList.SelectedItems.Count){$target=[string]$nodeList.SelectedItems[0].Tag.PcId};Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action='message';target_pc=$target;text=$msg;timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null;Toast 'Рассылка' 'Сообщение отправлено.' 'OK'}catch{Show-CcErrorPopup 'Рассылка' $_.Exception}})
 function Send-NodeCommand([string]$Action) {if(-not$nodeList.SelectedItems.Count){throw 'Выберите ПК.'};$n=$nodeList.SelectedItems[0].Tag;Write-CcAudit -Action ('fleet.'+$Action) -Target ([string]$n.PcId) -Result 'requested' -Details 'Команда управления ПК отправлена';Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action=$Action;target_pc=[string]$n.PcId;reason='По решению администратора';timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null}
