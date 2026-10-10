@@ -342,7 +342,7 @@ function Refresh-GameCatalog{
     try{
         $gameList.Items.Clear();$q=$gameSearch.Text;if($q -eq 'Поиск игры...'){$q=''};$f=[string]$gameFilter.Text;$rows=@()
         foreach($g in $script:GameCatalog){if($f -ne 'Все' -and $g.Launcher -ne $f){continue};$score=Get-CcFuzzyScore $g.Name $q;if($q -and $score -lt 35){continue};$rows+=[pscustomobject]@{Game=$g;Score=$score}}
-        foreach($row in @($rows|Sort-Object Score -Descending, @{Expression={$_.Game.Name}})){ $g=$row.Game;$installed=if(Test-CcGameInstalled $g){'Да'}else{'Нет'};$i=[Windows.Forms.ListViewItem]::new([string]$g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i) }
+        foreach($row in @($rows|Sort-Object -Property @{Expression='Score';Descending=$true}, @{Expression={$_.Game.Name};Ascending=$true})){ $g=$row.Game;$installed=if(Test-CcGameInstalled $g){'Да'}else{'Нет'};$i=[Windows.Forms.ListViewItem]::new([string]$g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i) }
     }catch{Write-CcError -FunctionName 'Refresh-GameCatalog' -Exception $_.Exception}
 }
 $gameSearch.Add_GotFocus({if($gameSearch.Text -eq 'Поиск игры...'){$gameSearch.Text='';$gameSearch.ForeColor=$C.Fg}});$gameSearch.Add_TextChanged({Refresh-GameCatalog});$gameFilter.Add_SelectedIndexChanged({Refresh-GameCatalog});$gameLan.Add_Click({try{Write-CcLog 'LAN game scan requested' 'INFO' 'UI';Scan-LanGames}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}})
