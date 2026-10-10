@@ -31,7 +31,9 @@ $Tools=Join-Path $Root 'tools'
 . (Join-Path $Tools 'Queue.ps1')
 . (Join-Path $Tools 'Orders.ps1')
 . (Join-Path $Tools 'Products.ps1')
+. (Join-Path $Tools 'Audit.ps1')
 . (Join-Path $Tools 'Fleet.ps1')
+. (Join-Path $Tools 'GameCache.ps1')
 
 try{
     [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
@@ -64,7 +66,7 @@ if([string]::IsNullOrWhiteSpace($Version)){
 
 # GitHub update settings. The application is fully portable: everything is resolved from $PSScriptRoot.
 $GithubRepo='Memaho24/CROC_PRO'
-$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'Pizda'}
+$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'fix/0.5.1-launcher-updater'}
 $GithubVersionUrl="https://raw.githubusercontent.com/$GithubRepo/$GithubBranch/version.txt"
 $GithubUpdateScript=Join-Path $Tools 'Updater.ps1'
 
@@ -111,13 +113,17 @@ function Invoke-CcStartupUpdateCheck {
         $useGithub=([string]$cfg['GITHUB_UPDATE_ENABLED'] -eq '1')
         if(-not$u -and $useGithub){$u=Test-CcGithubUpdate}
         if(-not $u -or -not $u.Available){return $false}
-        $sourceText=if($u.PSObject.Properties.Name -contains 'Source'){$u.Source}else{'GitHub'}
-        $answer=[Windows.Forms.MessageBox]::Show("Доступна новая версия CyberCroc.`r`n`r`nУстановлена: $($u.Local)`r`nНовая: $($u.Remote)`r`nИсточник: $sourceText`r`n`r`nОбновить программу сейчас?",'CyberCroc — доступно обновление',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Information)
+        $sourceText = 'GitHub'
+        if ($u.PSObject.Properties.Name -contains 'Source') { $sourceText = [string]$u.Source }
+        $nl = [Environment]::NewLine
+        $updateMessage = 'A new CyberCroc version is available. Installed: ' + [string]$u.Local + '; new: ' + [string]$u.Remote + '; source: ' + $sourceText + '. Update now?'
+        $answer = [Windows.Forms.MessageBox]::Show($updateMessage, 'CyberCroc update available', [Windows.Forms.MessageBoxButtons]::YesNo, [Windows.Forms.MessageBoxIcon]::Information)
         if($answer -ne [Windows.Forms.DialogResult]::Yes){Write-CcLog "Update declined: local=$($u.Local) remote=$($u.Remote)" 'INFO' 'Invoke-CcStartupUpdateCheck';return $false}
         $started=$false
         if($u.PSObject.Properties.Name -contains 'Source'){$started=Start-CcShareUpdate}elseif($useGithub){$started=Start-CcGithubUpdate}
         if($started){return $true}
-        [void][Windows.Forms.MessageBox]::Show('Не удалось запустить обновление. CyberCroc продолжит работу в текущей версии.','CyberCroc',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Warning)
+        $updateWarning = 'Could not start update. CyberCroc will continue with the current version.'
+        [void]([Windows.Forms.MessageBox]::Show($updateWarning, 'CyberCroc', [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Warning))
         return $false
     }catch{Write-CcError -FunctionName 'Invoke-CcStartupUpdateCheck' -Exception $_.Exception;return $false}
 }
@@ -150,7 +156,7 @@ function Set-Theme([string]$Name){
 Set-Theme $ThemeName
 
 $form=New-Object Windows.Forms.Form
-$form.Text="CyberCroc — $script:CcPcId";$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.AutoScaleMode=[Windows.Forms.AutoScaleMode]::Dpi;$form.AutoScaleDimensions=New-Object Drawing.SizeF(96,96);$form.MinimumSize=New-Object Drawing.Size(1280,760);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.ControlBox=$false;
+$form.Text='CyberCroc - ' + [string]$script:CcPcId;$form.StartPosition='CenterScreen';$form.WindowState='Maximized';$form.AutoScaleMode=[Windows.Forms.AutoScaleMode]::Dpi;$form.AutoScaleDimensions=New-Object Drawing.SizeF(96,96);$form.MinimumSize=New-Object Drawing.Size(960,640);$form.BackColor=$C.Bg;$form.ForeColor=$C.Fg;$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.ControlBox=$false;
 
 function New-Label([string]$Text,[int]$Size=10,[System.Drawing.FontStyle]$Style='Regular'){
     $x=New-Object Windows.Forms.Label;$x.Text=$Text;$x.AutoSize=$true;$x.Font=New-Object Drawing.Font('Segoe UI',$Size,$Style);$x.ForeColor=$C.Fg;return $x
@@ -198,7 +204,7 @@ function Show-CcClientOverlay([string]$Title,[string]$Message,[bool]$Emergency=$
 }
 function Apply-RoleVisibility {
     if($script:CcRole -eq 'client'){
-        foreach($key in @('hall','zapret','backup','cleanup','logs','settings')){if($navButtons.ContainsKey($key)){$navButtons[$key].Visible=$false}}
+        foreach($key in @('hall','zapret','backup','cleanup','logs','audit','settings')){if($navButtons.ContainsKey($key)){$navButtons[$key].Visible=$false}}
         if($navButtons.ContainsKey('support')){$navButtons['support'].Visible=$true}
         if($navButtons.ContainsKey('accounts')){$aCheck.Visible=$false;$aAdd.Visible=$false;$aEdit.Visible=$false;$aDel.Visible=$false}
         $orderList.Visible=$false;$ordersGrid.ColumnStyles[0].Width=100;$ordersGrid.ColumnStyles[1].Width=0;$orderPreparing.Visible=$false;$orderDelivered.Visible=$false;$orderRejected.Visible=$false;$orderEdit.Visible=$false
@@ -211,13 +217,13 @@ function Apply-RoleVisibility {
 
 # Application shell
 $shell=New-Object Windows.Forms.TableLayoutPanel;$shell.Dock='Fill';$shell.ColumnCount=2;$shell.RowCount=2
-[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,220)));[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)))
+[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,200)));[void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)))
 [void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,32)));$form.Controls.Add($shell)
 
 $nav=New-Object Windows.Forms.Panel;$nav.Dock='Fill';$nav.BackColor=$C.Panel;$nav.Padding=New-Object Windows.Forms.Padding(12,18,12,12);$shell.Controls.Add($nav,0,0)
 $brand=New-Label 'CYBER CROC' 20 'Bold';$brand.ForeColor=$C.Accent;$brand.Location=New-Object Drawing.Point(18,16);$nav.Controls.Add($brand)
 $brand2=New-Label "$script:CcRole / $script:CcPcId  |  CyberCroc $Version" 8 'Bold';$brand2.ForeColor=$C.Muted;$brand2.Location=New-Object Drawing.Point(20,49);$brand2.AutoSize=$true;$nav.Controls.Add($brand2)
-$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Dock='Fill';$menu.Padding=New-Object Windows.Forms.Padding(0,92,0,8);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$false;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
+$menu=New-Object Windows.Forms.FlowLayoutPanel;$menu.Dock='Fill';$menu.Padding=New-Object Windows.Forms.Padding(0,92,0,8);$menu.FlowDirection='TopDown';$menu.WrapContents=$false;$menu.AutoScroll=$true;$menu.BackColor=$C.Panel;$nav.Controls.Add($menu)
 
 $content=New-Object Windows.Forms.Panel;$content.Dock='Fill';$content.BackColor=$C.Bg;$shell.Controls.Add($content,1,0)
 $pageHost=New-Object Windows.Forms.Panel;$pageHost.Dock='Fill';$pageHost.BackColor=$C.Bg;$content.Controls.Add($pageHost)
@@ -291,7 +297,7 @@ $gameSearch=New-Object Windows.Forms.TextBox;$gameSearch.Dock='Fill';$gameSearch
 $gameFilter=New-Object Windows.Forms.ComboBox;$gameFilter.DropDownStyle='DropDownList';[void]$gameFilter.Items.AddRange(@('Все','Steam','Epic Games','Riot Games','Battle.net'));$gameFilter.SelectedIndex=0;$gameFilter.Dock='Fill';Apply-ControlTheme $gameFilter;$gameGrid.Controls.Add($gameFilter,1,0)
 $gameList=New-Object Windows.Forms.ListView;$gameList.Dock='Fill';$gameList.View='Details';$gameList.FullRowSelect=$true;$gameList.MultiSelect=$false;$gameList.BackColor=$C.Control;$gameList.ForeColor=$C.Fg;[void]$gameList.Columns.Add('Игра',260);[void]$gameList.Columns.Add('Лаунчер',120);[void]$gameList.Columns.Add('Цена',100);[void]$gameList.Columns.Add('Установлена',120);$gameGrid.Controls.Add($gameList,0,1)
 $gameInfo=New-Object Windows.Forms.TextBox;$gameInfo.Multiline=$true;$gameInfo.ReadOnly=$true;$gameInfo.Dock='Fill';$gameInfo.BackColor=$C.Panel;$gameInfo.ForeColor=$C.Fg;$gameInfo.Text='Выберите игру.`r`n`r`nМожно установить её через установленный лаунчер. Для Steam используется официальный Steam URI, для Epic/Riot/Battle.net — запуск соответствующего лаунчера.';$gameGrid.Controls.Add($gameInfo,1,1)
-$gameButtons=New-Flow;$gameInstall=New-Button 'УСТАНОВКА  УСТАНОВИТЬ' 180 58;$gameLaunch=New-Button 'ЗАПУСК  ЗАПУСТИТЬ' 170 58;$gameUpdate=New-Button 'ОБНОВЛЕНИЕ  ОБНОВИТЬ' 160 58;$gameLan=New-Button 'LAN  ЛОКАЛЬНАЯ СЕТЬ' 190 58;$gameAdd=New-Button '+ Своя игра' 140 58;$gameButtons.Controls.Add($gameInstall);$gameButtons.Controls.Add($gameLaunch);$gameButtons.Controls.Add($gameUpdate);$gameButtons.Controls.Add($gameLan);$gameButtons.Controls.Add($gameAdd);$gameGrid.Controls.Add($gameButtons,0,2);$gameGrid.SetColumnSpan($gameButtons,2)
+$gameButtons=New-Flow;$gameInstall=New-Button 'УСТАНОВКА  УСТАНОВИТЬ' 180 58;$gameLaunch=New-Button 'ЗАПУСК  ЗАПУСТИТЬ' 170 58;$gameUpdate=New-Button 'ОБНОВЛЕНИЕ  ОБНОВИТЬ' 160 58;$gameLan=New-Button 'LAN  ЛОКАЛЬНАЯ СЕТЬ' 190 58;$gameCachePublish=New-Button 'РАЗДАТЬ ИГРУ ПО LAN' 190 58;$gameCacheSync=New-Button 'СКАЧАТЬ ИГРУ ПО LAN' 190 58;$gameAdd=New-Button '+ Своя игра' 140 58;$gameAccounts=New-Button 'АККАУНТЫ АДМИНА' 190 58;$gameButtons.Controls.Add($gameInstall);$gameButtons.Controls.Add($gameLaunch);$gameButtons.Controls.Add($gameUpdate);$gameButtons.Controls.Add($gameLan);$gameButtons.Controls.Add($gameCachePublish);$gameButtons.Controls.Add($gameCacheSync);$gameButtons.Controls.Add($gameAdd);$gameButtons.Controls.Add($gameAccounts);$gameGrid.Controls.Add($gameButtons,0,2);$gameGrid.SetColumnSpan($gameButtons,2)
 $script:GameCatalog=@()
 function Load-GameCatalog{
     try{
@@ -336,10 +342,13 @@ function Refresh-GameCatalog{
     try{
         $gameList.Items.Clear();$q=$gameSearch.Text;if($q -eq 'Поиск игры...'){$q=''};$f=[string]$gameFilter.Text;$rows=@()
         foreach($g in $script:GameCatalog){if($f -ne 'Все' -and $g.Launcher -ne $f){continue};$score=Get-CcFuzzyScore $g.Name $q;if($q -and $score -lt 35){continue};$rows+=[pscustomobject]@{Game=$g;Score=$score}}
-        foreach($row in @($rows|Sort-Object Score -Descending, @{Expression={$_.Game.Name}})){ $g=$row.Game;$installed=if(Test-CcGameInstalled $g){'Да'}else{'Нет'};$i=[Windows.Forms.ListViewItem]::new([string]$g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i) }
+        foreach($row in @($rows|Sort-Object -Property @{Expression='Score';Descending=$true}, @{Expression={$_.Game.Name};Ascending=$true})){ $g=$row.Game;$installed=if(Test-CcGameInstalled $g){'Да'}else{'Нет'};$i=[Windows.Forms.ListViewItem]::new([string]$g.Name);[void]$i.SubItems.Add($g.Launcher);[void]$i.SubItems.Add($g.Price);[void]$i.SubItems.Add($installed);$i.Tag=$g;[void]$gameList.Items.Add($i) }
     }catch{Write-CcError -FunctionName 'Refresh-GameCatalog' -Exception $_.Exception}
 }
-$gameSearch.Add_GotFocus({if($gameSearch.Text -eq 'Поиск игры...'){$gameSearch.Text='';$gameSearch.ForeColor=$C.Fg}});$gameSearch.Add_TextChanged({Refresh-GameCatalog});$gameFilter.Add_SelectedIndexChanged({Refresh-GameCatalog});$gameLan.Add_Click({try{Write-CcLog 'LAN game scan requested' 'INFO' 'UI';Scan-LanGames}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}});$gameAdd.Add_Click({try{Show-CustomGameDialog}catch{Show-CcErrorPopup 'Своя игра' $_.Exception}})
+$gameSearch.Add_GotFocus({if($gameSearch.Text -eq 'Поиск игры...'){$gameSearch.Text='';$gameSearch.ForeColor=$C.Fg}});$gameSearch.Add_TextChanged({Refresh-GameCatalog});$gameFilter.Add_SelectedIndexChanged({Refresh-GameCatalog});$gameLan.Add_Click({try{Write-CcLog 'LAN game scan requested' 'INFO' 'UI';Scan-LanGames}catch{Show-CcErrorPopup 'Локальная сеть' $_.Exception}})
+$gameCachePublish.Add_Click({try{if($script:CcRole -ne 'admin'){throw 'Раздавать игры по LAN может только администратор.'};if(-not(Request-CcAdminAccess)){return};if(-not $gameList.SelectedItems.Count){throw 'Сначала выберите игру в списке.'};$g=$gameList.SelectedItems[0].Tag;$dialog=New-Object Windows.Forms.FolderBrowserDialog;$dialog.Description="Выберите папку с установленными файлами игры $($g.Name) на этом ПК";$dialog.ShowNewFolderButton=$false;if($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK){return};$progress.Visible=$true;$result=Publish-CcGameCache -GameName ([string]$g.Name) -SourcePath $dialog.SelectedPath -Confirm:$false;Toast 'LAN-кэш' ("Опубликовано: {0} файлов, {1:N1} ГБ" -f $result.FileCount,($result.TotalBytes/1GB)) 'OK';$gameInfo.Text="Игра опубликована в локальной сети.`r`nФайлов: $($result.FileCount)`r`nРазмер: $([math]::Round($result.TotalBytes/1GB,1)) ГБ`r`nПуть: $($result.Path)"}catch{Show-CcErrorPopup 'Раздача игры по LAN' $_.Exception}finally{$progress.Visible=$false}})
+$gameCacheSync.Add_Click({try{if(-not $gameList.SelectedItems.Count){throw 'Сначала выберите игру в списке.'};$g=$gameList.SelectedItems[0].Tag;$dialog=New-Object Windows.Forms.FolderBrowserDialog;$dialog.Description="Выберите папку установки игры $($g.Name) на этом ПК (файлы будут обновлены, другие файлы не удаляются)";$dialog.ShowNewFolderButton=$true;if($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK){return};$progress.Visible=$true;$result=Sync-CcGameCache -GameName ([string]$g.Name) -DestinationPath $dialog.SelectedPath -Confirm:$false;Toast 'LAN-кэш' ("Синхронизация завершена. Изменено файлов: {0}" -f $result.ChangedFiles) 'OK';$gameInfo.Text="Синхронизация из LAN-кэша завершена.`r`nИзменено файлов: $($result.ChangedFiles)`r`nПапка: $($result.Destination)"}catch{Show-CcErrorPopup 'Скачать игру по LAN' $_.Exception}finally{$progress.Visible=$false}})
+$gameAdd.Add_Click({try{if($script:CcRole -ne 'admin' -or -not(Request-CcAdminAccess)){return};Show-CustomGameDialog}catch{Show-CcErrorPopup 'Своя игра' $_.Exception}});$gameAccounts.Add_Click({try{if($script:CcRole -ne 'admin'){throw 'Добавление аккаунтов доступно только администратору.'};if(-not(Request-CcAdminAccess)){return};Show-AccountDialog;Show-Page 'accounts'}catch{Show-CcErrorPopup 'Игровые аккаунты' $_.Exception}})
 $gameInstall.Add_Click({if(-not $gameList.SelectedItems.Count){Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.');return};$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://install/$($g.AppID)"}elseif($g.Launcher -eq 'Epic Games'){Start-Process 'com.epicgames.launcher://apps'}elseif($g.Launcher -eq 'Riot Games'){$exe=Get-CcLauncherExe 'RiotClientServices.exe';if($exe){Start-Process $exe}else{throw 'Riot Client не найден.'}}else{Start-Process 'https://www.blizzard.com/'};Toast 'Игры' "Открыт лаунчер: $($g.Launcher)" 'OK'}catch{Show-CcErrorPopup 'Установка игры' $_.Exception}})
 $gameLaunch.Add_Click({if($gameList.SelectedItems.Count){$g=$gameList.SelectedItems[0].Tag;try{if($g.Launcher -eq 'Steam' -and $g.AppID){Start-Process "steam://rungameid/$($g.AppID)"}else{throw "Запуск $($g.Name) требует лаунчер $($g.Launcher)."}}catch{Show-CcErrorPopup 'Запуск игры' $_.Exception}}else{Show-CcErrorPopup 'Игры' ([Exception]'Сначала выберите игру.')}})
 $gameUpdate.Add_Click({Toast 'Игры' 'Проверка обновлений игры передана лаунчеру.' 'INFO'})
@@ -371,16 +380,16 @@ $accounts=New-Object Windows.Forms.Panel;$accounts.Dock='Fill';$accounts.BackCol
 $accountArea=New-Object Windows.Forms.TableLayoutPanel;$accountArea.Dock='Fill';$accountArea.Padding=New-Object Windows.Forms.Padding(20,100,20,15);$accountArea.RowCount=2
 [void]$accountArea.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$accountArea.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,72)));$accounts.Controls.Add($accountArea)
 $aList=New-Object Windows.Forms.ListView;$aList.View='Details';$aList.FullRowSelect=$true;$aList.MultiSelect=$false;$aList.Dock='Fill';$aList.BackColor=$C.Control;$aList.ForeColor=$C.Fg
-[void]$aList.Columns.Add('Платформа',150);[void]$aList.Columns.Add('Логин',220);[void]$aList.Columns.Add('Статус',150);[void]$aList.Columns.Add('Проверка',180);$accountArea.Controls.Add($aList,0,0)
-$ab=New-Flow;$aLogin=New-Button 'ВОЙТИ' 170 58;$aCheck=New-Button 'Проверить' 150 58;$aAdd=New-Button '+ Добавить' 150 58;$aEdit=New-Button 'Изменить' 140 58;$aDel=New-Button 'Удалить' 130 58
-foreach($b in @($aLogin,$aCheck,$aAdd,$aEdit,$aDel)){$ab.Controls.Add($b)};$accountArea.Controls.Add($ab,0,1)
-function Refresh-Accounts{try{$aList.Items.Clear();foreach($a in @(Get-CcAccounts)){$i=[Windows.Forms.ListViewItem]::new([string]$a.Platform);[void]$i.SubItems.Add($a.Login);[void]$i.SubItems.Add($a.Status);[void]$i.SubItems.Add([string]$a.LastCheck);$i.Tag=$a;[void]$aList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
+[void]$aList.Columns.Add('Платформа',130);[void]$aList.Columns.Add('Логин',180);[void]$aList.Columns.Add('Статус',110);[void]$aList.Columns.Add('Занят ПК',120);[void]$aList.Columns.Add('Проверка',145);$accountArea.Controls.Add($aList,0,0)
+$ab=New-Flow;$aLogin=New-Button 'ВОЙТИ' 150 58;$aRelease=New-Button 'ОСВОБОДИТЬ' 150 58;$aCheck=New-Button 'Проверить' 140 58;$aAdd=New-Button '+ Добавить' 140 58;$aEdit=New-Button 'Изменить' 120 58;$aDel=New-Button 'Удалить' 110 58
+foreach($b in @($aLogin,$aRelease,$aCheck,$aAdd,$aEdit,$aDel)){$ab.Controls.Add($b)};$accountArea.Controls.Add($ab,0,1)
+function Refresh-Accounts{try{$aList.Items.Clear();foreach($a in @(Get-CcAccounts)){$i=[Windows.Forms.ListViewItem]::new([string]$a.Platform);[void]$i.SubItems.Add([string]$a.Login);[void]$i.SubItems.Add([string]$a.Status);$occupiedBy=[string]$(if($a.UsedBy){$a.UsedBy}elseif($a.ActivePc){$a.ActivePc}elseif($a.PcId){$a.PcId}else{'—'});[void]$i.SubItems.Add($occupiedBy);[void]$i.SubItems.Add([string]$a.LastCheck);$i.Tag=$a;[void]$aList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-Accounts' -Exception $_.Exception}}
 function Invoke-AccountLogin {if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};try{Start-CcAccountSession $aList.SelectedItems[0].Tag|Out-Null;Refresh-Accounts}catch{Show-CcErrorPopup 'Вход' $_.Exception}}
 function Invoke-AccountCheck {if($script:CcRole -ne 'admin'){Toast 'Аккаунты' 'Проверка доступна только админу.' 'INFO';return};try{if(-not(Request-CcAdminAccess)){return};$progress.Visible=$true;foreach($a in @(Get-CcAccounts)){Test-CcAccount $a $cfg|Out-Null};Save-CcAccounts @(Get-CcAccounts)|Out-Null;Refresh-Accounts;Toast 'Аккаунты' 'Проверка завершена.' 'OK'}catch{Write-CcError -FunctionName 'Account-Check' -Exception $_.Exception}finally{$progress.Visible=$false}}
-function Invoke-AccountAdd {if($script:CcRole -ne 'admin'){return};if(Request-CcAdminAccess){Show-AccountDialog}}
-function Invoke-AccountEdit {if($script:CcRole -ne 'admin'){return};if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};if(Request-CcAdminAccess){Show-AccountDialog $aList.SelectedItems[0].Tag}}
-function Invoke-AccountDelete {if($script:CcRole -ne 'admin'){return};if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};if(-not(Request-CcAdminAccess)){return};$a=$aList.SelectedItems[0].Tag;$answer=[Windows.Forms.MessageBox]::Show("Удалить аккаунт $($a.Login)?",'Удаление аккаунта',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Warning);if($answer -eq [Windows.Forms.DialogResult]::Yes){Remove-CcAccount $a.Id|Out-Null;Refresh-Accounts}}
-$aLogin.Add_Click({Invoke-AccountLogin});$aCheck.Add_Click({Invoke-AccountCheck})
+function Invoke-AccountAdd {if($script:CcRole -ne 'admin'){return};if(Request-CcAdminAccess){Show-AccountDialog;Write-CcAudit -Action 'account.add' -Target 'game-account' -Result 'requested' -Details 'Диалог добавления игрового аккаунта открыт'}}
+function Invoke-AccountEdit {if($script:CcRole -ne 'admin'){return};if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};if(Request-CcAdminAccess){$account=$aList.SelectedItems[0].Tag;Show-AccountDialog $account;Write-CcAudit -Action 'account.edit' -Target ([string]$account.Login) -Result 'requested' -Details ([string]$account.Platform)}}
+function Invoke-AccountDelete {if($script:CcRole -ne 'admin'){return};if(-not $aList.SelectedItems.Count){Toast 'Аккаунты' 'Выберите аккаунт.' 'INFO';return};if(-not(Request-CcAdminAccess)){return};$a=$aList.SelectedItems[0].Tag;$answer=[Windows.Forms.MessageBox]::Show("Удалить аккаунт $($a.Login)?",'Удаление аккаунта',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Warning);if($answer -eq [Windows.Forms.DialogResult]::Yes){Remove-CcAccount $a.Id|Out-Null;Write-CcAudit -Action 'account.delete' -Target ([string]$a.Login) -Result 'success' -Details ([string]$a.Platform);Refresh-Accounts}}
+$aLogin.Add_Click({Invoke-AccountLogin});$aRelease.Add_Click({try{if(-not $aList.SelectedItems.Count){throw 'Выберите аккаунт.'};$selectedAccount=$aList.SelectedItems[0].Tag;if($script:CcRole -eq 'admin' -and -not(Request-CcAdminAccess)){return};[void](Stop-CcAccountSession $selectedAccount);Refresh-Accounts;Toast 'Аккаунты' 'Аккаунт освобождён.' 'OK'}catch{Show-CcErrorPopup 'Освобождение аккаунта' $_.Exception}});$aCheck.Add_Click({Invoke-AccountCheck})
 function Show-AccountDialog($existing=$null){
     $d = New-Object Windows.Forms.Form
     if ($null -ne $existing) {
@@ -597,9 +606,23 @@ $script:AppCatalog=@(
     [pscustomobject]@{Name='VLC';Id='VideoLAN.VLC';Type='Медиа';Price='Бесплатно'},
     [pscustomobject]@{Name='AIMP';Id='AIMP.AIMP';Type='Медиа';Price='Бесплатно'},
     [pscustomobject]@{Name='Visual C++ 2015-2022 x64';Id='Microsoft.VCRedist.2015+.x64';Type='Система';Price='Бесплатно'},
-    [pscustomobject]@{Name='DirectX Runtime';Id='Microsoft.DirectX';Type='Система';Price='Бесплатно'}
+    [pscustomobject]@{Name='DirectX Runtime';Id='Microsoft.DirectX';Type='Система';Price='Бесплатно'},
+    [pscustomobject]@{Name='7-Zip';Id='7zip.7zip';Type='Архиватор';Price='Бесплатно'},
+    [pscustomobject]@{Name='PeaZip';Id='Giorgiotani.Peazip';Type='Архиватор';Price='Бесплатно'},
+    [pscustomobject]@{Name='Paint.NET';Id='dotPDN.PaintDotNet';Type='Графика';Price='Бесплатно'},
+    [pscustomobject]@{Name='GIMP';Id='GIMP.GIMP';Type='Графика';Price='Бесплатно'},
+    [pscustomobject]@{Name='ShareX';Id='ShareX.ShareX';Type='Утилита';Price='Бесплатно'},
+    [pscustomobject]@{Name='PowerToys';Id='Microsoft.PowerToys';Type='Утилита';Price='Бесплатно'},
+    [pscustomobject]@{Name='CPU-Z';Id='CPUID.CPU-Z';Type='Диагностика';Price='Бесплатно'},
+    [pscustomobject]@{Name='GPU-Z';Id='TechPowerUp.GPU-Z';Type='Диагностика';Price='Бесплатно'},
+    [pscustomobject]@{Name='CrystalDiskInfo';Id='CrystalDewWorld.CrystalDiskInfo';Type='Диагностика';Price='Бесплатно'},
+    [pscustomobject]@{Name='HWiNFO';Id='REALiX.HWiNFO';Type='Диагностика';Price='Бесплатно'},
+    [pscustomobject]@{Name='Microsoft .NET Desktop Runtime 8';Id='Microsoft.DotNet.DesktopRuntime.8';Type='Система';Price='Бесплатно'},
+    [pscustomobject]@{Name='Microsoft Visual C++ x86';Id='Microsoft.VCRedist.2015+.x86';Type='Система';Price='Бесплатно'},
+    [pscustomobject]@{Name='Java Runtime';Id='EclipseAdoptium.Temurin.21.JRE';Type='Система';Price='Бесплатно'},
+    [pscustomobject]@{Name='Python 3';Id='Python.Python.3.12';Type='Разработка';Price='Бесплатно'}
 )
-function Refresh-AppCatalog{try{$appList.Items.Clear();$q=$appSearch.Text;if($q -like 'Поиск:*'){$q=''};$rows=@();foreach($x in $script:AppCatalog){$score=[math]::Max((Get-CcFuzzyScore $x.Name $q),(Get-CcFuzzyScore $x.Type $q));if($q -and $score -lt 35){continue};$rows+=[pscustomobject]@{Item=$x;Score=$score}};foreach($r in @($rows|Sort-Object Score -Descending, @{Expression={$_.Item.Name}})){$x=$r.Item;$i=[Windows.Forms.ListViewItem]::new([string]$x.Name);[void]$i.SubItems.Add($x.Type);[void]$i.SubItems.Add($x.Price);$i.Tag=$x;[void]$appList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-AppCatalog' -Exception $_.Exception}}
+function Refresh-AppCatalog{try{$appList.Items.Clear();$q=$appSearch.Text;if($q -like 'Поиск:*'){$q=''};$rows=@();foreach($x in $script:AppCatalog){$score=[math]::Max((Get-CcFuzzyScore $x.Name $q),(Get-CcFuzzyScore $x.Type $q));if($q -and $score -lt 35){continue};$rows+=[pscustomobject]@{Item=$x;Score=$score}};foreach($r in @($rows|Sort-Object -Property @{Expression='Score';Descending=$true}, @{Expression={$_.Item.Name};Ascending=$true})){$x=$r.Item;$categoryIcon=switch -Regex ([string]$x.Type) {'Браузер' {'🌐'} 'Мессенджер' {'💬'} 'Лаунчер' {'🎮'} 'Офис' {'📄'} 'Архиватор' {'🗜'} 'Графика' {'🎨'} 'Диагностика' {'🩺'} 'Система' {'⚙'} default {'🧰'}};$i=[Windows.Forms.ListViewItem]::new("$categoryIcon  $($x.Name)");[void]$i.SubItems.Add($x.Type);[void]$i.SubItems.Add($x.Price);$i.Tag=$x;[void]$appList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-AppCatalog' -Exception $_.Exception}}
 function Start-WingetApp([object]$Item,[string]$Mode){try{$winget=(Get-Command winget.exe -ErrorAction Stop).Source;$op=if($Mode -eq 'update'){'upgrade'}else{'install'};$args=@($op,'--id',$Item.Id,'--exact','--source','winget','--accept-source-agreements','--accept-package-agreements','--silent','--disable-interactivity');$progress.Visible=$true;$appInfo.Text="Операция: $op`r`n`r`n$($Item.Name)`r`n`r`nОжидайте завершения...";$p=Start-Process -FilePath $winget -ArgumentList $args -WindowStyle Hidden -PassThru;$script:AppProcess=$p;$script:AppProcessName=$Item.Name;$script:AppProcessMode=$Mode}catch{Show-CcErrorPopup 'Установка программы' $_.Exception}}
 $appInstallOne.Add_Click({if($appList.SelectedItems.Count){Start-WingetApp $appList.SelectedItems[0].Tag 'install'}else{Show-CcErrorPopup 'Программы' ([Exception]'Сначала выберите программу.')}})
 $appUpdateOne.Add_Click({if($appList.SelectedItems.Count){Start-WingetApp $appList.SelectedItems[0].Tag 'update'}else{Show-CcErrorPopup 'Программы' ([Exception]'Сначала выберите программу.')}})
@@ -679,13 +702,13 @@ $ordersPage=New-Object Windows.Forms.Panel;$ordersPage.Dock='Fill';$ordersPage.B
 $ordersGrid=New-Object Windows.Forms.TableLayoutPanel;$ordersGrid.Dock='Fill';$ordersGrid.Padding=New-Object Windows.Forms.Padding(20,98,20,15);$ordersGrid.ColumnCount=2;$ordersGrid.RowCount=2;$ordersGrid.BackColor=$C.Bg;$ordersPage.Controls.Add($ordersGrid)
 [void]$ordersGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,56)));[void]$ordersGrid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,44)));[void]$ordersGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$ordersGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,72)))
 $productList=New-Object Windows.Forms.ListView;$productList.View='Details';$productList.FullRowSelect=$true;$productList.MultiSelect=$false;$productList.Dock='Fill';$productList.BackColor=$C.Control;$productList.ForeColor=$C.Fg;[void]$productList.Columns.Add('Товар',260);[void]$productList.Columns.Add('Цена',100);[void]$productList.Columns.Add('Остаток',100);[void]$productList.Columns.Add('Категория',140);$ordersGrid.Controls.Add($productList,0,0)
-$orderList=New-Object Windows.Forms.ListView;$orderList.View='Details';$orderList.FullRowSelect=$true;$orderList.MultiSelect=$false;$orderList.Dock='Fill';$orderList.BackColor=$C.Control;$orderList.ForeColor=$C.Fg;[void]$orderList.Columns.Add('ПК',90);[void]$orderList.Columns.Add('Товар',160);[void]$orderList.Columns.Add('Оплата',95);[void]$orderList.Columns.Add('Сумма',90);[void]$orderList.Columns.Add('Статус',105);$ordersGrid.Controls.Add($orderList,1,0)
+$orderList=New-Object Windows.Forms.ListView;$orderList.View='Details';$orderList.FullRowSelect=$true;$orderList.MultiSelect=$false;$orderList.Dock='Fill';$orderList.BackColor=$C.Control;$orderList.ForeColor=$C.Fg;[void]$orderList.Columns.Add('ПК',80);[void]$orderList.Columns.Add('Товар',145);[void]$orderList.Columns.Add('Кол-во',70);[void]$orderList.Columns.Add('Оплата',85);[void]$orderList.Columns.Add('Сумма',85);[void]$orderList.Columns.Add('Статус',90);[void]$orderList.Columns.Add('Время',125);$ordersGrid.Controls.Add($orderList,1,0)
 $orderButtons=New-Flow;$orderBuy=New-Button 'ЗАКАЗАТЬ' 170 56;$orderRefresh=New-Button 'ОБНОВИТЬ' 150 56;$orderEdit=New-Button 'ТОВАР' 150 56;$orderPreparing=New-Button 'ГОТОВИТСЯ' 160 56;$orderDelivered=New-Button 'ДОСТАВЛЕН' 160 56;$orderRejected=New-Button 'ОТКЛОНИТЬ' 150 56;foreach($b in @($orderBuy,$orderRefresh,$orderEdit,$orderPreparing,$orderDelivered,$orderRejected)){$orderButtons.Controls.Add($b)};$ordersGrid.Controls.Add($orderButtons,0,1);$ordersGrid.SetColumnSpan($orderButtons,2)
 function Refresh-OrdersPage {
     try {
         $productList.Items.Clear();$items=@(Get-CcProducts)
-        foreach($x in $items){$i=[Windows.Forms.ListViewItem]::new([string]$x.Name);[void]$i.SubItems.Add(([decimal]$x.Price).ToString('0.00'));[void]$i.SubItems.Add(([decimal]$x.Quantity).ToString('0.##'));[void]$i.SubItems.Add([string]$x.Category);$i.Tag=$x;[void]$productList.Items.Add($i)}
-        $orderList.Items.Clear();foreach($o in @(Get-CcOrders|Sort-Object timestamp -Descending|Select-Object -First 100)){$i=[Windows.Forms.ListViewItem]::new([string]$o.client_pc);[void]$i.SubItems.Add([string]$o.item_name);[void]$i.SubItems.Add([string]$o.payment_type);[void]$i.SubItems.Add(([decimal]$o.total).ToString('0.00'));[void]$i.SubItems.Add([string]$o.status);$i.Tag=$o;[void]$orderList.Items.Add($i)}
+        foreach($x in $items){$productIcon=switch -Regex ([string]$x.Category) {'(?i)напит|drink|вода|кофе|чай' {'🥤'} '(?i)снэк|снек|еда|food|чипс|шоколад' {'🍫'} default {'🛒'}};$i=[Windows.Forms.ListViewItem]::new("$productIcon  $($x.Name)");[void]$i.SubItems.Add(([decimal]$x.Price).ToString('0.00'));[void]$i.SubItems.Add(([decimal]$x.Quantity).ToString('0.##'));[void]$i.SubItems.Add([string]$x.Category);$i.Tag=$x;[void]$productList.Items.Add($i)}
+        $orderList.Items.Clear();foreach($o in @(Get-CcOrders|Sort-Object timestamp -Descending|Select-Object -First 100)){$i=[Windows.Forms.ListViewItem]::new([string]$o.client_pc);[void]$i.SubItems.Add([string]$o.item_name);[void]$i.SubItems.Add(([decimal]$o.quantity).ToString('0.##'));[void]$i.SubItems.Add([string]$o.payment_type);[void]$i.SubItems.Add(([decimal]$o.total).ToString('0.00'));[void]$i.SubItems.Add([string]$o.status);$orderTime='—';try{$orderTime=([datetime]::Parse([string]$o.timestamp)).ToLocalTime().ToString('dd.MM HH:mm')}catch{};[void]$i.SubItems.Add($orderTime);$i.Tag=$o;[void]$orderList.Items.Add($i)}
     } catch { Write-CcError -FunctionName 'Refresh-OrdersPage' -Exception $_.Exception }
 }
 function Show-PaymentDialog([object]$Product) {
@@ -701,9 +724,9 @@ function Show-PaymentDialog([object]$Product) {
 $orderBuy.Add_Click({try{if(-not$productList.SelectedItems.Count){throw 'Выберите товар.'};$p=$productList.SelectedItems[0].Tag;if([decimal]$p.Quantity -le 0){throw 'Товар закончился.'};Show-PaymentDialog $p}catch{Show-CcErrorPopup 'Заказ' $_.Exception}})
 $orderRefresh.Add_Click({try{Refresh-OrdersPage;Toast 'Товары' 'Каталог обновлён.' 'OK'}catch{Show-CcErrorPopup 'Товары' $_.Exception}})
 $orderEdit.Add_Click({try{if($script:CcRole -ne 'admin'){return};if(-not(Request-CcAdminAccess)){return};if(-not$productList.SelectedItems.Count){throw 'Выберите товар.'};$x=$productList.SelectedItems[0].Tag;$d=New-Object Windows.Forms.Form;$d.Text='Редактор товара';$d.Size=New-Object Drawing.Size(520,320);$d.StartPosition='CenterParent';$d.BackColor=$C.Bg;$t=New-Object Windows.Forms.TableLayoutPanel;$t.Dock='Fill';$t.Padding=New-Object Windows.Forms.Padding(14);$t.RowCount=4;$t.ColumnCount=2;[void]$t.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Absolute,140)));[void]$t.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle([Windows.Forms.SizeType]::Percent,100)));$d.Controls.Add($t);$f=@{};foreach($name in @('Название','Цена','Количество')){[void]$t.Controls.Add((New-Label $name),0,$f.Count);$tb=New-Object Windows.Forms.TextBox;$tb.Dock='Fill';Apply-ControlTheme $tb;$f[$name]=$tb;[void]$t.Controls.Add($tb,1,($f.Count-1))};$f['Название'].Text=$x.Name;$f['Цена'].Text=[string]$x.Price;$f['Количество'].Text=[string]$x.Quantity;$ok=New-Button 'СОХРАНИТЬ' 160 52;$t.Controls.Add($ok,1,3);$ok.Add_Click({try{$pr=[decimal]::Parse($f['Цена'].Text,[Globalization.NumberStyles]::Number,[Globalization.CultureInfo]::InvariantCulture);$qq=[decimal]::Parse($f['Количество'].Text,[Globalization.NumberStyles]::Number,[Globalization.CultureInfo]::InvariantCulture);if(-not(Set-CcProduct [int]$x.Row $f['Название'].Text.Trim() $pr $qq ([string]$x.Category))){throw 'Google Sheets недоступен; изменение не сохранено.'};$d.Close();Refresh-OrdersPage;Toast 'Товары' 'Изменения синхронизированы.' 'OK'}catch{Show-CcErrorPopup 'Редактор товара' $_.Exception}});[void]$d.ShowDialog($form)}catch{Show-CcErrorPopup 'Товар' $_.Exception}})
-$orderPreparing.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){[void](Set-CcOrderStatus ([string]$orderList.SelectedItems[0].Tag.order_id) 'preparing');Refresh-OrdersPage}})
-$orderDelivered.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){[void](Set-CcOrderStatus ([string]$orderList.SelectedItems[0].Tag.order_id) 'delivered');Refresh-OrdersPage}})
-$orderRejected.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){[void](Set-CcOrderStatus ([string]$orderList.SelectedItems[0].Tag.order_id) 'rejected');Refresh-OrdersPage}})
+$orderPreparing.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){$o=$orderList.SelectedItems[0].Tag;[void](Set-CcOrderStatus ([string]$o.order_id) 'preparing');Write-CcAudit -Action 'order.status' -Target ([string]$o.order_id) -Result 'success' -Details ('status=preparing; pc='+[string]$o.client_pc);Refresh-OrdersPage}})
+$orderDelivered.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){$o=$orderList.SelectedItems[0].Tag;[void](Set-CcOrderStatus ([string]$o.order_id) 'delivered');Write-CcAudit -Action 'order.status' -Target ([string]$o.order_id) -Result 'success' -Details ('status=delivered; pc='+[string]$o.client_pc);Refresh-OrdersPage}})
+$orderRejected.Add_Click({if($script:CcRole -eq 'admin' -and $orderList.SelectedItems.Count){$o=$orderList.SelectedItems[0].Tag;[void](Set-CcOrderStatus ([string]$o.order_id) 'rejected');Write-CcAudit -Action 'order.status' -Target ([string]$o.order_id) -Result 'success' -Details ('status=rejected; pc='+[string]$o.client_pc);Refresh-OrdersPage}})
 $pages['orders']=$ordersPage;$pages['bar']=$ordersPage;$ordersPage.Controls[0].BringToFront()
 
 # Client support
@@ -725,15 +748,72 @@ $nodeList=New-Object Windows.Forms.ListView;$nodeList.View='Tile';$nodeList.Full
 $hallInfo=New-Object Windows.Forms.TextBox;$hallInfo.Multiline=$true;$hallInfo.ReadOnly=$true;$hallInfo.Dock='Fill';$hallInfo.BackColor=$C.Panel;$hallInfo.ForeColor=$C.Fg;$hallInfo.Text='Выберите ПК для действий.';$hallGrid.Controls.Add($hallInfo,1,0)
 $hallActions=New-Flow;$msgText=New-Object Windows.Forms.TextBox;$msgText.Width=280;$msgText.Height=52;$msgText.Text='';Apply-ControlTheme $msgText;$msgText.ToolTipText='Сообщение для всех или выбранного ПК';$hallActions.Controls.Add($msgText)
 $sendMsg=New-Button 'РАССЫЛКА' 150 56;$blockPc=New-Button 'БЛОКИРОВКА' 160 56;$unblockPc=New-Button 'РАЗБЛОКИРОВКА' 170 56;$fleetBtn=New-Button 'РАЗОСЛАТЬ КОНФИГ' 190 56;$emergency=New-Button 'АВАРИЯ' 140 56;$emergency.BackColor=$C['Danger'];$emergency.ForeColor=$C.White;foreach($b in @($sendMsg,$blockPc,$unblockPc,$fleetBtn,$emergency)){$hallActions.Controls.Add($b)};$hallGrid.Controls.Add($hallActions,0,1);$hallGrid.SetColumnSpan($hallActions,2)
-function Refresh-HallPage {try{$nodeList.Items.Clear();$nodes=@(Get-CcKnownNodes);$expected=[int](Get-CcConfig)['EXPECTED_PCS'];$online=@($nodes|Where-Object Online).Count;$hallInfo.Text="Обнаружено $($nodes.Count), онлайн $online из плановых $expected.`r`nВыберите плитку ПК для управления.";foreach($n in $nodes){$state=if($n.Online){'ONLINE'}else{'OFFLINE'};$label="$($n.PcId)  |  $state  |  $($n.Zone)";$i=[Windows.Forms.ListViewItem]::new([string]$label);$i.ToolTipText="Хост: $($n.Host)`r`nВерсия: $($n.Version)";$i.Tag=$n;[void]$nodeList.Items.Add($i)}}catch{Write-CcError -FunctionName 'Refresh-HallPage' -Exception $_.Exception}}
+function Refresh-HallPage {
+    try {
+        $selectedPc = ''
+        if ($nodeList.SelectedItems.Count) { $selectedPc = [string]$nodeList.SelectedItems[0].Tag.PcId }
+        $nodes = @(Get-CcKnownNodes)
+        $hallConfig = Get-CcConfig
+        $expected = 50
+        try { if ($hallConfig.ContainsKey('EXPECTED_PCS')) { $expected = [int]$hallConfig['EXPECTED_PCS'] } } catch {}
+        if ($expected -lt 1) { $expected = 50 }
+
+        $useNumberedLayout = ($nodes.Count -eq 0)
+        if ($nodes.Count -gt 0) {
+            $unnumbered = @($nodes | Where-Object { [string]$_.PcId -notmatch '^PC-\d+$' })
+            if ($unnumbered.Count -eq 0) { $useNumberedLayout = $true }
+        }
+        if ($useNumberedLayout) {
+            $known = @{}
+            foreach ($node in $nodes) { $known[[string]$node.PcId] = $true }
+            for ($pcIndex = 1; $pcIndex -le $expected; $pcIndex++) {
+                $placeholder = 'PC-{0:D2}' -f $pcIndex
+                if (-not $known.ContainsKey($placeholder)) {
+                    $nodes += [pscustomobject]@{
+                        PcId = $placeholder; Role = 'client'; Zone = 'standard'
+                        Version = '—'; Host = 'Не обнаружен'; Address = ''
+                        LastSeenUtc = [DateTime]::UtcNow.AddDays(-1); Online = $false
+                    }
+                }
+            }
+        }
+        $nodes = @($nodes | Sort-Object Zone, PcId)
+        $online = @($nodes | Where-Object { $_.Online }).Count
+        $nodeList.BeginUpdate()
+        $nodeList.Items.Clear()
+        foreach ($node in $nodes) {
+            $state = if ($node.Online) { 'ONLINE' } else { 'OFFLINE' }
+            $item = [Windows.Forms.ListViewItem]::new("$($node.PcId)  |  $state  |  $($node.Zone)")
+            $item.ToolTipText = "Хост: $($node.Host)`r`nВерсия: $($node.Version)"
+            $item.Tag = $node
+            [void]$nodeList.Items.Add($item)
+            if ($selectedPc -and $selectedPc -eq [string]$node.PcId) { $item.Selected = $true }
+        }
+        $nodeList.EndUpdate()
+        if (-not $selectedPc) { $hallInfo.Text = "Обнаружено $($nodes.Count), онлайн $online из плановых $expected.`r`nВыберите плитку ПК для управления." }
+    } catch {
+        try { $nodeList.EndUpdate() } catch {}
+        Write-CcError -FunctionName 'Refresh-HallPage' -Exception $_.Exception
+    }
+}
 $nodeList.Add_SelectedIndexChanged({if($nodeList.SelectedItems.Count){$n=$nodeList.SelectedItems[0].Tag;$hallInfo.Text="PC: $($n.PcId)`r`nСостояние: $(if($n.Online){'онлайн'}else{'нет связи'})`r`nЗона: $($n.Zone)`r`nХост: $($n.Host)`r`nВерсия: $($n.Version)`r`nПоследний beacon: $($n.LastSeenUtc.ToLocalTime().ToString('HH:mm:ss'))"}})
 $sendMsg.Add_Click({try{$msg=[string]$msgText.Text.Trim();if(-not$msg){throw 'Введите сообщение.'};$target='*';if($nodeList.SelectedItems.Count){$target=[string]$nodeList.SelectedItems[0].Tag.PcId};Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action='message';target_pc=$target;text=$msg;timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null;Toast 'Рассылка' 'Сообщение отправлено.' 'OK'}catch{Show-CcErrorPopup 'Рассылка' $_.Exception}})
-function Send-NodeCommand([string]$Action) {if(-not$nodeList.SelectedItems.Count){throw 'Выберите ПК.'};$n=$nodeList.SelectedItems[0].Tag;Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action=$Action;target_pc=[string]$n.PcId;reason='По решению администратора';timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null}
+function Send-NodeCommand([string]$Action) {if(-not$nodeList.SelectedItems.Count){throw 'Выберите ПК.'};$n=$nodeList.SelectedItems[0].Tag;Write-CcAudit -Action ('fleet.'+$Action) -Target ([string]$n.PcId) -Result 'requested' -Details 'Команда управления ПК отправлена';Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action=$Action;target_pc=[string]$n.PcId;reason='По решению администратора';timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null}
 $blockPc.Add_Click({try{if(-not(Request-CcAdminAccess)){return};Send-NodeCommand 'block';Toast 'Карта зала' 'ПК заблокирован.' 'OK'}catch{Show-CcErrorPopup 'Блокировка' $_.Exception}})
 $unblockPc.Add_Click({try{if(-not(Request-CcAdminAccess)){return};Send-NodeCommand 'unblock';Toast 'Карта зала' 'Команда разблокировки отправлена.' 'OK'}catch{Show-CcErrorPopup 'Разблокировка' $_.Exception}})
 $fleetBtn.Add_Click({try{if(-not(Request-CcAdminAccess)){return};$r=Sync-CcConfigToFleet;Toast 'Развёртывание' "Успешно: $($r.Success), ошибок: $($r.Failed), всего: $($r.Total)." $(if($r.Failed){'ERROR'}else{'OK'})}catch{Show-CcErrorPopup 'Массовое развёртывание' $_.Exception}})
 $emergency.Add_Click({try{if(-not(Request-CcAdminAccess)){return};$a=[Windows.Forms.MessageBox]::Show('Отправить на все клиентские ПК сообщение «ПОКИНЬТЕ ЗАЛ» и сирену?','АВАРИЯ',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Warning);if($a -ne [Windows.Forms.DialogResult]::Yes){return};$reasonText='Аварийное уведомление';Send-CcUdpMessage ([pscustomobject]@{type='command';sender_role='admin';sender_pc=$script:CcPcId;action='emergency';target_pc='*';reason=$reasonText;timestamp=(Get-Date).ToUniversalTime().ToString('o')})|Out-Null;Write-CcLog "Emergency broadcast sent by $script:CcPcId" 'WARN' 'Emergency';Toast 'АВАРИЯ' 'Команда отправлена на все ПК.' 'ERROR'}catch{Show-CcErrorPopup 'Авария' $_.Exception}})
 $pages['hall']=$hall;$hall.Controls[0].BringToFront();
+
+# Audit trail for privileged operations
+$auditPage=New-Object Windows.Forms.Panel;$auditPage.Dock='Fill';$auditPage.BackColor=$C.Bg;$auditPage.Controls.Add((New-PageTitle 'Аудит действий' 'Журнал действий и операций администратора на этом компьютере.'))
+$auditGrid=New-Object Windows.Forms.TableLayoutPanel;$auditGrid.Dock='Fill';$auditGrid.Padding=New-Object Windows.Forms.Padding(18,98,18,12);$auditGrid.ColumnCount=1;$auditGrid.RowCount=2;[void]$auditGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Percent,100)));[void]$auditGrid.RowStyles.Add((New-Object Windows.Forms.RowStyle([Windows.Forms.SizeType]::Absolute,64)));$auditPage.Controls.Add($auditGrid)
+$auditList=New-Object Windows.Forms.ListView;$auditList.View='Details';$auditList.FullRowSelect=$true;$auditList.Dock='Fill';$auditList.BackColor=$C.Control;$auditList.ForeColor=$C.Fg;foreach($col in @(@('Время',135),@('Пользователь',110),@('Роль',75),@('ПК',90),@('Действие',170),@('Объект',140),@('Результат',90),@('Детали',280))){[void]$auditList.Columns.Add([string]$col[0],[int]$col[1])};$auditGrid.Controls.Add($auditList,0,0)
+$auditActions=New-Flow;$auditRefresh=New-Button 'ОБНОВИТЬ' 150 46;$auditExport=New-Button 'ЭКСПОРТ CSV' 170 46;$auditActions.Controls.Add($auditRefresh);$auditActions.Controls.Add($auditExport);$auditGrid.Controls.Add($auditActions,0,1)
+function Refresh-AuditPage {try{$auditList.BeginUpdate();$auditList.Items.Clear();foreach($event in @(Get-CcAuditEvents -Limit 2000)){$time='—';try{$time=([datetime]::Parse([string]$event.timestamp)).ToLocalTime().ToString('dd.MM.yyyy HH:mm:ss')}catch{};$item=[Windows.Forms.ListViewItem]::new($time);foreach($value in @($event.actor,$event.role,$event.pc_id,$event.action,$event.target,$event.result,$event.details)){[void]$item.SubItems.Add([string]$value)};[void]$auditList.Items.Add($item)}}catch{Write-CcError -FunctionName 'Refresh-AuditPage' -Exception $_.Exception}finally{try{$auditList.EndUpdate()}catch{}}}
+$auditRefresh.Add_Click({Refresh-AuditPage})
+$auditExport.Add_Click({try{$file=Join-Path $Root ('logs\audit-export-{0}.csv' -f (Get-Date -Format 'yyyyMMdd-HHmmss'));@(Get-CcAuditEvents -Limit 100000)|Select-Object timestamp,actor,role,pc_id,action,target,result,details|Export-Csv -LiteralPath $file -NoTypeInformation -Encoding UTF8;Toast 'Аудит' "Экспортирован: $file" 'OK'}catch{Show-CcErrorPopup 'Экспорт аудита' $_.Exception}})
+$pages['audit']=$auditPage;$auditPage.Controls[0].BringToFront();Refresh-AuditPage
 
 # Settings
 $settings=New-Object Windows.Forms.Panel;$settings.Dock='Fill';$settings.BackColor=$C.Bg;$settings.Controls.Add((New-PageTitle 'Настройки' 'Изменяйте только то, что действительно нужно.'))
@@ -786,15 +866,35 @@ Add-MenuButton 'apps' 'ПРОГРАММЫ'
 Add-MenuButton 'backup' 'БЭКАП'
 Add-MenuButton 'cleanup' 'ОЧИСТКА'
 Add-MenuButton 'logs' 'ЖУРНАЛ'
+Add-MenuButton 'audit' 'АУДИТ ДЕЙСТВИЙ'
 Add-MenuButton 'hall' 'КАРТА ЗАЛА'
 Add-MenuButton 'settings' 'НАСТРОЙКИ'
 
 
 $form.KeyPreview=$true
-$form.Add_KeyDown({param($sender,$e) try{
-    if($e.Control -and $e.KeyCode -eq [Windows.Forms.Keys]::B -and $script:CcRole -eq 'admin'){if($nodeList.SelectedItems.Count){if(Request-CcAdminAccess){Send-NodeCommand 'block';Toast 'Карта зала' 'ПК заблокирован горячей клавишей Ctrl+B.' 'WARN'}}};$e.SuppressKeyPress=$true;return}
-    switch($e.KeyCode){'F1'{Show-Page 'support'};'F2'{Show-Page 'orders'};'F3'{if($script:CcRole -eq 'admin'){Show-Page 'hall'}};'F4'{Show-Page 'orders'};'Escape'{Show-Page 'home'}};$e.SuppressKeyPress=$true
-}catch{Write-CcError -FunctionName 'Hotkey' -Exception $_.Exception}})
+$form.Add_KeyDown({
+    param($sender, $e)
+    try {
+        if ($e.Control -and $e.KeyCode -eq [Windows.Forms.Keys]::B -and $script:CcRole -eq 'admin') {
+            if ($nodeList.SelectedItems.Count -and (Request-CcAdminAccess)) {
+                Send-NodeCommand 'block'
+                Toast 'Карта зала' 'ПК заблокирован горячей клавишей Ctrl+B.' 'WARN'
+            }
+            $e.SuppressKeyPress = $true
+            return
+        }
+        switch ($e.KeyCode) {
+            'F1' { Show-Page 'support' }
+            'F2' { Show-Page 'orders' }
+            'F3' { if ($script:CcRole -eq 'admin') { Show-Page 'hall' } }
+            'F4' { Show-Page 'orders' }
+            'Escape' { Show-Page 'home' }
+        }
+        $e.SuppressKeyPress = $true
+    } catch {
+        Write-CcError -FunctionName 'Hotkey' -Exception $_.Exception
+    }
+})
 $uiTip.SetToolTip($orderBuy,'Оформить заказ. Перед подтверждением выбирается способ оплаты.');$uiTip.SetToolTip($orderEdit,'Только админ: изменить название, цену и остаток в Google Sheets.');$uiTip.SetToolTip($callBtn,'Запрос попадает на админскую стойку; при отсутствии связи сохраняется в queue.json.');$uiTip.SetToolTip($emergency,'Аварийное сообщение на все клиентские ПК. Использовать только по реальной необходимости.');$uiTip.SetToolTip($fleetBtn,'Синхронизировать общие настройки со всеми обнаруженными клиентскими ПК по SMB.');$uiTip.SetToolTip($homeCheck,'Локальная диагностика Windows и железа.')
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
 $logTimer=New-Object Windows.Forms.Timer;$logTimer.Interval=2000;$logTimer.Add_Tick({try{if($pages.ContainsKey('logs') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['logs']){Refresh-Logs}}catch{}});$logTimer.Start()
@@ -807,12 +907,13 @@ $networkTimer=New-Object Windows.Forms.Timer;$networkTimer.Interval=500;$network
         'order' { if($script:CcRole -eq 'admin'){ $o=Register-CcIncomingOrder $m;if($o){Send-CcOrderAck ([string]$m.order_id) $packet.RemoteAddress $packet.RemotePort|Out-Null;[System.Media.SystemSounds]::Exclamation.Play();Toast 'Новый заказ' "$($m.item_name) × $($m.quantity), $($m.payment_type), ПК $($m.client_pc)" 'INFO';Refresh-OrdersPage} } }
         'admin_call' { if($script:CcRole -eq 'admin'){ $c=Register-CcIncomingCall $m;if($c){Send-CcCallAck ([string]$m.call_id) $packet.RemoteAddress $packet.RemotePort|Out-Null;[System.Media.SystemSounds]::Asterisk.Play();Toast 'Вызов админа' "ПК $($m.client_pc): $($m.reason)" 'WARN'} } }
         'ack' { if($script:CcRole -eq 'client'){if($m.ack_type -eq 'order'){Complete-CcQueuedOperation 'order' ([string]$m.reference_id)|Out-Null;Acknowledge-CcOrder ([string]$m.reference_id)}elseif($m.ack_type -eq 'admin_call'){Complete-CcQueuedOperation 'admin_call' ([string]$m.reference_id)|Out-Null;Acknowledge-CcCall ([string]$m.reference_id)}} }
+        'account_presence' { if($script:CcRole -eq 'admin' -and $m.account_id -and $m.pc_id){$accountList=@(Get-CcAccounts);$accountChanged=$false;foreach($account in $accountList){if([string]$account.Id -eq [string]$m.account_id){if(-not $account.PSObject.Properties['ActivePc']){$account|Add-Member -NotePropertyName ActivePc -NotePropertyValue ''};if(-not $account.PSObject.Properties['PcId']){$account|Add-Member -NotePropertyName PcId -NotePropertyValue ''};$activePc=[string]$account.ActivePc;if(-not $activePc){$activePc=[string]$account.PcId};$incomingPc=[string]$m.pc_id;$incomingState=[string]$m.state;if($incomingState -eq 'occupied' -and (-not $activePc -or $activePc -eq $incomingPc)){$account.Status='occupied';$account.UsedBy=[string]$m.used_by;$account.UsedSince=[string]$m.used_since;$account.ActivePc=$incomingPc;$account.PcId=$incomingPc;$accountChanged=$true}elseif($incomingState -eq 'available' -and (-not $activePc -or $activePc -eq $incomingPc)){$account.Status='available';$account.UsedBy='';$account.UsedSince='';$account.ActivePc='';$account.PcId='';$accountChanged=$true};break}};if($accountChanged){[void](Save-CcAccounts $accountList);[void](Sync-CcAccounts -Mode Push);Refresh-Accounts;Write-CcAudit -Action 'account.presence' -Target ([string]$m.login) -Result 'success' -Details ('state='+[string]$m.state+'; pc='+[string]$m.pc_id)}} }
         'command' { if([string]$m.sender_role -ne 'admin'){continue};$target=[string]$m.target_pc;if($target -ne '*' -and $target -ne $script:CcPcId){continue};switch([string]$m.action){'message'{Toast 'Сообщение администратора' ([string]$m.text) 'INFO'};'block'{Show-CcClientOverlay 'ПК заблокирован администратором' ([string]$(if($m.reason){$m.reason}else{'Обратитесь к администратору.'})) $false};'unblock'{Toast 'Администратор' 'ПК снова доступен.' 'OK'};'emergency'{Show-CcClientOverlay 'ПОКИНЬТЕ ЗАЛ' ([string]$(if($m.reason){$m.reason}else{'Аварийная ситуация.'})) $true} } }
     }}
-    if($script:CcRole -eq 'client'){if((($now-$script:CcLastBeaconUtc).TotalSeconds -ge (Get-CcNetworkConfig).BeaconIntervalSec)){Send-CcBeacon;$script:CcLastBeaconUtc=$now};if((($now-$script:CcLastQueueRetryUtc).TotalSeconds -ge 5 -and (Get-CcQueueItems).Count -gt 0)){Resend-CcQueuedOperations;$script:CcLastQueueRetryUtc=$now}}else{if((($now-$script:CcLastBeaconUtc).TotalSeconds -ge (Get-CcNetworkConfig).BeaconIntervalSec)){Send-CcBeacon;$script:CcLastBeaconUtc=$now};if($pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['hall']){Refresh-HallPage}}
+    if($script:CcRole -eq 'client'){if((($now-$script:CcLastBeaconUtc).TotalSeconds -ge (Get-CcNetworkConfig).BeaconIntervalSec)){Send-CcBeacon;$script:CcLastBeaconUtc=$now};if((($now-$script:CcLastQueueRetryUtc).TotalSeconds -ge 5 -and (Get-CcQueueItems).Count -gt 0)){Resend-CcQueuedOperations;$script:CcLastQueueRetryUtc=$now}}else{if((($now-$script:CcLastBeaconUtc).TotalSeconds -ge (Get-CcNetworkConfig).BeaconIntervalSec)){Send-CcBeacon;$script:CcLastBeaconUtc=$now};if($pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['hall']){$hallNow=(Get-Date).ToUniversalTime();if(-not $script:CcLastHallRefreshUtc -or ($hallNow-$script:CcLastHallRefreshUtc).TotalSeconds -ge 2){Refresh-HallPage;$script:CcLastHallRefreshUtc=$hallNow}}}
     $networkState=if((($now-$script:CcLastAdminSeenUtc).TotalSeconds -le 30)){'АДМИН: ONLINE'}else{'АДМИН: нет связи'};$footer.Text="ПК: $script:CcPcId | Роль: $script:CcRole | Пользователь: $env:USERNAME | Версия: $Version | $networkState"
 }catch{Write-CcError -FunctionName 'NetworkTimer' -Exception $_.Exception}});$networkTimer.Start()
-Write-CcLog "CyberCroc GUI initialized role=$script:CcRole pc=$script:CcPcId version=$Version" 'OK' 'Startup'
+Write-CcLog "CyberCroc GUI initialized role=$script:CcRole pc=$script:CcPcId version=$Version" 'OK' 'Startup';Write-CcAudit -Action 'application.start' -Target $script:CcPcId -Result 'success' -Details ("role={0}; version={1}" -f $script:CcRole,$Version)
 $syncTimer=New-Object Windows.Forms.Timer;$syncTimer.Interval=30000;$syncTimer.Add_Tick({try{if(Sync-CcAccounts Pull){Refresh-Accounts}}catch{}});$syncTimer.Start()
 try{Sync-CcAccounts Pull|Out-Null}catch{}
 $script:AppProcess=$null;$script:AppProcessName=''

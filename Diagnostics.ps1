@@ -1,4 +1,4 @@
-﻿\xef\xbb\xbf<#
+﻿<#
   Diagnostics.ps1 - диагностика ПК: SMART, температура, Event Log, SFC, DISM.
   Запуск:  Diagnostics.ps1            быстрая проверка (sfc /verifyonly, dism /CheckHealth)
            Diagnostics.ps1 -Full      + dism /ScanHealth
