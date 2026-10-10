@@ -66,7 +66,7 @@ if([string]::IsNullOrWhiteSpace($Version)){
 
 # GitHub update settings. The application is fully portable: everything is resolved from $PSScriptRoot.
 $GithubRepo='Memaho24/CROC_PRO'
-$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'main'}
+$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'fix/0.5.1-launcher-updater'}
 $GithubVersionUrl="https://raw.githubusercontent.com/$GithubRepo/$GithubBranch/version.txt"
 $GithubUpdateScript=Join-Path $Tools 'Updater.ps1'
 
