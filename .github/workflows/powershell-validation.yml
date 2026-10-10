@@ -1,0 +1,23 @@
+name: PowerShell validation
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feature/**'
+
+jobs:
+  syntax:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate PowerShell syntax and project files
+        shell: powershell
+        run: .\tests\Test-CyberCrocSyntax.ps1
