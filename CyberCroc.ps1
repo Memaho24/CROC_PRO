@@ -1031,9 +1031,3 @@ $script:AppProcess=$null;$script:AppProcessName=''
 $appTimer=New-Object Windows.Forms.Timer;$appTimer.Interval=500;$appTimer.Add_Tick({try{if($null -ne $script:AppProcess){if($script:AppProcess.HasExited){$rc=$script:AppProcess.ExitCode;$appInfo.Text="Операция завершена: $script:AppProcessName`nКод: $rc";$progress.Visible=$false;if($rc -eq 0){Toast 'Программы' "$script:AppProcessName установлена/обновлена." 'OK'}else{Show-CcErrorPopup 'Установка программы' ([Exception]("$script:AppProcessName завершилась с кодом $rc"))};$script:AppProcess=$null}}}catch{}});$appTimer.Start()
 Refresh-Home;Refresh-GameCatalog;Refresh-AppCatalog;Refresh-Accounts;Refresh-Logs;Refresh-OrdersPage;Apply-Theme;Apply-RoleVisibility;Show-Page 'home'
 $form.Add_FormClosing({param($sender,$e) try{if($script:CcRole -eq 'admin' -and (Request-CcAdminAccess)){ $script:CcAllowClose=$true;Stop-CcUdpListener;$e.Cancel=$false;Write-CcLog 'Admin-authorized GUI close.' 'WARN' 'FormClosing';return } $e.Cancel=$true;Write-CcLog 'GUI close prevented by kiosk policy.' 'WARN' 'FormClosing'}catch{$e.Cancel=$true}})
-try {
-    [void][System.Windows.Forms.Application]::Run($form)
-} catch {
-    Write-CcError -FunctionName 'Application.Run' -Exception $_.Exception
-    throw
-}
