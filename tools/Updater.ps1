@@ -11,7 +11,7 @@ param(
     [switch]$Apply,
     [switch]$Github,
     [string]$Repo='Memaho24/CROC_PRO',
-    [string]$Branch='main',
+    [string]$Branch='fix/0.5.1-launcher-updater',
     [string]$Source,
     [int]$WaitPid=0
 )
