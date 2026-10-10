@@ -330,8 +330,21 @@ function Start-CcAccountSession {
         }
 
         $Account.Status='occupied'
-        $Account.UsedBy=$env:USERNAME
+        $Account.UsedBy=("{0} ({1})" -f $env:USERNAME,[Environment]::MachineName)
         $Account.UsedSince=(Get-Date).ToString('s')
+        $allAccounts=@(Get-CcAccounts)
+        foreach($stored in $allAccounts){if([string]$stored.Id -eq [string]$Account.Id){$stored.Status='occupied';$stored.UsedBy=$Account.UsedBy;$stored.UsedSince=$Account.UsedSince}}
+        [void](Save-CcAccounts $allAccounts)
+        try {
+            [void](Send-CcUdpMessage ([pscustomobject]@{
+                type='account_presence';state='occupied';account_id=[string]$Account.Id
+                platform=[string]$Account.Platform;login=[string]$Account.Login
+                pc_id=[string](Get-CcPcId);host=[Environment]::MachineName
+                used_by=[string]$Account.UsedBy;used_since=[string]$Account.UsedSince
+                timestamp=(Get-Date).ToUniversalTime().ToString('o')
+            }))
+        } catch { Write-CcLog "Account presence broadcast failed: $($_.Exception.Message)" 'WARN' 'Start-CcAccountSession' }
+        try { Write-CcAudit -Action 'account.session.start' -Target ([string]$Account.Login) -Result 'success' -Details ("platform={0}; pc={1}" -f $Account.Platform,(Get-CcPcId)) } catch {}
         Write-CcLog "Account session started: $($Account.Platform)/$($Account.Login)" 'OK' 'Start-CcAccountSession'
         return $true
     } catch {
