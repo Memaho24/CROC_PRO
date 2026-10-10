@@ -872,10 +872,29 @@ Add-MenuButton 'settings' 'НАСТРОЙКИ'
 
 
 $form.KeyPreview=$true
-$form.Add_KeyDown({param($sender,$e) try{
-    if($e.Control -and $e.KeyCode -eq [Windows.Forms.Keys]::B -and $script:CcRole -eq 'admin'){if($nodeList.SelectedItems.Count){if(Request-CcAdminAccess){Send-NodeCommand 'block';Toast 'Карта зала' 'ПК заблокирован горячей клавишей Ctrl+B.' 'WARN'}}};$e.SuppressKeyPress=$true;return}
-    switch($e.KeyCode){'F1'{Show-Page 'support'};'F2'{Show-Page 'orders'};'F3'{if($script:CcRole -eq 'admin'){Show-Page 'hall'}};'F4'{Show-Page 'orders'};'Escape'{Show-Page 'home'}};$e.SuppressKeyPress=$true
-}catch{Write-CcError -FunctionName 'Hotkey' -Exception $_.Exception}})
+$form.Add_KeyDown({
+    param($sender, $e)
+    try {
+        if ($e.Control -and $e.KeyCode -eq [Windows.Forms.Keys]::B -and $script:CcRole -eq 'admin') {
+            if ($nodeList.SelectedItems.Count -and (Request-CcAdminAccess)) {
+                Send-NodeCommand 'block'
+                Toast 'Карта зала' 'ПК заблокирован горячей клавишей Ctrl+B.' 'WARN'
+            }
+            $e.SuppressKeyPress = $true
+            return
+        }
+        switch ($e.KeyCode) {
+            'F1' { Show-Page 'support' }
+            'F2' { Show-Page 'orders' }
+            'F3' { if ($script:CcRole -eq 'admin') { Show-Page 'hall' } }
+            'F4' { Show-Page 'orders' }
+            'Escape' { Show-Page 'home' }
+        }
+        $e.SuppressKeyPress = $true
+    } catch {
+        Write-CcError -FunctionName 'Hotkey' -Exception $_.Exception
+    }
+})
 $uiTip.SetToolTip($orderBuy,'Оформить заказ. Перед подтверждением выбирается способ оплаты.');$uiTip.SetToolTip($orderEdit,'Только админ: изменить название, цену и остаток в Google Sheets.');$uiTip.SetToolTip($callBtn,'Запрос попадает на админскую стойку; при отсутствии связи сохраняется в queue.json.');$uiTip.SetToolTip($emergency,'Аварийное сообщение на все клиентские ПК. Использовать только по реальной необходимости.');$uiTip.SetToolTip($fleetBtn,'Синхронизировать общие настройки со всеми обнаруженными клиентскими ПК по SMB.');$uiTip.SetToolTip($homeCheck,'Локальная диагностика Windows и железа.')
 $timer=New-Object Windows.Forms.Timer;$timer.Interval=1000;$timer.Add_Tick({$clock.Text=(Get-Date).ToString('HH:mm:ss')});$timer.Start()
 $logTimer=New-Object Windows.Forms.Timer;$logTimer.Interval=2000;$logTimer.Add_Tick({try{if($pages.ContainsKey('logs') -and $pageHost.Controls.Count -gt 0 -and $pageHost.Controls[0] -eq $pages['logs']){Refresh-Logs}}catch{}});$logTimer.Start()
