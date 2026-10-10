@@ -104,7 +104,7 @@ function Get-CcConfig {
             'THEME'='dark';'GAMES_SHARE'='';'BAR_SHEET_ID'='';'BAR_SHEET_URL'='';'BAR_SHARE'='';'GAMES_SOURCE_URL'='';
             'ROLE'='client';'PC_ID'='';'PC_ZONE'='standard';'DISCOVERY_PORT'='50505';'BEACON_INTERVAL_SEC'='10';
             'BROADCAST_ADDRESS'='255.255.255.255';'EXPECTED_PCS'='50';'PRODUCT_SHEET_RANGE'='Sheet1!A:C';'PRODUCT_SHEET_URL'='';'PRODUCT_SHEET_ID'='';
-            'GOOGLE_SERVICE_ACCOUNT_JSON'='';'UPDATE_SHARE'='';'GITHUB_UPDATE_ENABLED'='0';'GITHUB_BRANCH'='cybercroc2-refactor';'ADMIN_PASSWORD_PROTECTED'='';'WATCHDOG_ENABLED'='1';'AUTOSTART'='1'
+            'GOOGLE_SERVICE_ACCOUNT_JSON'='';'UPDATE_SHARE'='';'GITHUB_UPDATE_ENABLED'='0';'GITHUB_BRANCH'='Pizda';'ADMIN_PASSWORD_PROTECTED'='';'WATCHDOG_ENABLED'='1';'AUTOSTART'='1'
         }
         foreach($key in $defaults.Keys){if(-not$script:CcConfigCache.ContainsKey([string]$key)){$script:CcConfigCache[[string]$key]=$defaults[$key]}}
         # One-time migration from the legacy plaintext admin password to user-scoped Windows DPAPI.

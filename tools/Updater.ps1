@@ -11,7 +11,7 @@ param(
     [switch]$Apply,
     [switch]$Github,
     [string]$Repo='Memaho24/CROC_PRO',
-    [string]$Branch='main',
+    [string]$Branch='Pizda',
     [string]$Source,
     [int]$WaitPid=0
 )
