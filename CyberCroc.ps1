@@ -64,7 +64,7 @@ if([string]::IsNullOrWhiteSpace($Version)){
 
 # GitHub update settings. The application is fully portable: everything is resolved from $PSScriptRoot.
 $GithubRepo='Memaho24/CROC_PRO'
-$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'cybercroc2-refactor'}
+$GithubBranch=if($cfg['GITHUB_BRANCH']){[string]$cfg['GITHUB_BRANCH']}else{'Pizda'}
 $GithubVersionUrl="https://raw.githubusercontent.com/$GithubRepo/$GithubBranch/version.txt"
 $GithubUpdateScript=Join-Path $Tools 'Updater.ps1'
 
