@@ -1,4 +1,4 @@
-# CyberCroc 0.5
+# CyberCroc 0.5.1
 
 GUI-first мастер-приложение для Windows 10/11 компьютерного клуба.
 
@@ -34,7 +34,7 @@ tools\Updater.ps1      SMB updater
 
 `ROLE=client` — клиентский ПК. `ROLE=admin` — стойка.
 
-Мастер-пароль хранится в `ADMIN_PASSWORD_PROTECTED` через Windows DPAPI. Открытого `ADMIN_PASSWORD=` в конфиге 0.5.0 нет. Путь к JSON service account задаётся только на админском ПК и исключён из fleet sync.
+Мастер-пароль хранится в `ADMIN_PASSWORD_PROTECTED` через Windows DPAPI. Открытого `ADMIN_PASSWORD=` в конфиге 0.5.1 нет. Путь к JSON service account задаётся только на админском ПК и исключён из fleet sync.
 
 CyberCroc не извлекает чужие Steam/Riot/Battle.net/Epic пароли из профилей и не передаёт сохранённый пароль командной строкой.
 
@@ -80,4 +80,4 @@ powershell.exe -ExecutionPolicy Bypass -File .\tests\Static-Validate.ps1
 
 Failover резервных стоек, persistent rollback, read-only баланс Langame, shift handover, feedback и функции из третьей версии оставлены следующими этапами.
 
-Ветка: `cybercroc2-refactor`.
+Рабочая ветка обновления: `Pizda`.
