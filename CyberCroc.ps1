@@ -122,7 +122,8 @@ function Invoke-CcStartupUpdateCheck {
         $started=$false
         if($u.PSObject.Properties.Name -contains 'Source'){$started=Start-CcShareUpdate}elseif($useGithub){$started=Start-CcGithubUpdate}
         if($started){return $true}
-        [void][Windows.Forms.MessageBox]::Show('Не удалось запустить обновление. CyberCroc продолжит работу в текущей версии.','CyberCroc',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Warning)
+        $updateWarning = 'Could not start update. CyberCroc will continue with the current version.'
+        [void]([Windows.Forms.MessageBox]::Show($updateWarning, 'CyberCroc', [Windows.Forms.MessageBoxButtons]::OK, [Windows.Forms.MessageBoxIcon]::Warning))
         return $false
     }catch{Write-CcError -FunctionName 'Invoke-CcStartupUpdateCheck' -Exception $_.Exception;return $false}
 }
