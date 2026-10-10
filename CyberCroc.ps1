@@ -116,8 +116,8 @@ function Invoke-CcStartupUpdateCheck {
         $sourceText = 'GitHub'
         if ($u.PSObject.Properties.Name -contains 'Source') { $sourceText = [string]$u.Source }
         $nl = [Environment]::NewLine
-        $updateMessage = 'Доступна новая версия CyberCroc.' + $nl + $nl + ('Установлена: {0}{3}Новая: {1}{3}Источник: {2}' -f $u.Local, $u.Remote, $sourceText, $nl) + $nl + $nl + 'Обновить программу сейчас?'
-        $answer = [Windows.Forms.MessageBox]::Show($updateMessage, 'CyberCroc — доступно обновление', [Windows.Forms.MessageBoxButtons]::YesNo, [Windows.Forms.MessageBoxIcon]::Information)
+        $updateMessage = 'A new CyberCroc version is available. Installed: ' + [string]$u.Local + '; new: ' + [string]$u.Remote + '; source: ' + $sourceText + '. Update now?'
+        $answer = [Windows.Forms.MessageBox]::Show($updateMessage, 'CyberCroc update available', [Windows.Forms.MessageBoxButtons]::YesNo, [Windows.Forms.MessageBoxIcon]::Information)
         if($answer -ne [Windows.Forms.DialogResult]::Yes){Write-CcLog "Update declined: local=$($u.Local) remote=$($u.Remote)" 'INFO' 'Invoke-CcStartupUpdateCheck';return $false}
         $started=$false
         if($u.PSObject.Properties.Name -contains 'Source'){$started=Start-CcShareUpdate}elseif($useGithub){$started=Start-CcGithubUpdate}
