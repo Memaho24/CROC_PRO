@@ -1,27 +1,32 @@
+[CmdletBinding()]
 param([Parameter(Mandatory=$true)][string]$ScriptPath)
 $ErrorActionPreference = 'Stop'
-$ExpectedCyberCrocSha256 = '29C03AC227964DAB7FD16C7FE25B3B410F1009C5'
-$outFile = Join-Path $env:TEMP ('CyberCroc_stdout_' + [guid]::NewGuid().ToString('N') + '.log')
-$errFile = Join-Path $env:TEMP ('CyberCroc_stderr_' + [guid]::NewGuid().ToString('N') + '.log')
+$root = Split-Path -Parent $ScriptPath
+$logDir = Join-Path $root 'logs'
+try { New-Item -ItemType Directory -Path $logDir -Force | Out-Null } catch {}
+$runnerLog = Join-Path $logDir 'launcher-runner.log'
+$outFile = Join-Path $logDir 'cybercroc-stdout.log'
+$errFile = Join-Path $logDir 'cybercroc-stderr.log'
+
+function Write-RunnerLog([string]$Message) {
+    try { Add-Content -LiteralPath $runnerLog -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message) -Encoding UTF8 } catch {}
+}
 try {
     if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
-        Write-Error ("CyberCroc.ps1 not found: " + $ScriptPath)
+        Write-RunnerLog ("ERROR: CyberCroc.ps1 not found: " + $ScriptPath)
         exit 20
     }
     $resolvedScript = (Resolve-Path -LiteralPath $ScriptPath -ErrorAction Stop).Path
     $info = Get-Item -LiteralPath $resolvedScript -ErrorAction Stop
     $hash = (Get-FileHash -LiteralPath $resolvedScript -Algorithm SHA256).Hash.ToUpperInvariant()
-    Write-Output ("LauncherRunner: actual file = " + $resolvedScript)
-    Write-Output ("LauncherRunner: size = " + $info.Length + " bytes")
-    Write-Output ("LauncherRunner: modified = " + $info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))
-    Write-Output ("LauncherRunner: SHA256 = " + $hash)
-    Write-Output ("LauncherRunner: expected SHA256 = " + $ExpectedCyberCrocSha256)
-    if ($hash -ne $ExpectedCyberCrocSha256) {
-        Write-Error "LOCAL FILE MISMATCH: CyberCroc.ps1 on disk is not the Pizda version expected by this launcher. No files were modified."
-        exit 11
-    }
+    Write-RunnerLog ("Actual file: " + $resolvedScript)
+    Write-RunnerLog ("Size: " + $info.Length + " bytes")
+    Write-RunnerLog ("Modified: " + $info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))
+    Write-RunnerLog ("SHA256: " + $hash)
 
-    Write-Output "LauncherRunner: validating PowerShell syntax..."
+    # Do not compare a file SHA256 with a Git blob SHA: they use different algorithms/formats.
+    # Syntax validation provides a useful local safety check without blocking legitimate edits.
+    Write-RunnerLog "Validating PowerShell syntax..."
     $files = @($resolvedScript)
     $toolsDir = Join-Path (Split-Path -Parent $resolvedScript) 'tools'
     if (Test-Path -LiteralPath $toolsDir -PathType Container) {
@@ -32,47 +37,35 @@ try {
         $parseErrors = $null
         [void][System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$parseErrors)
         if ($parseErrors -and $parseErrors.Count -gt 0) {
-            Write-Output ("LauncherRunner: syntax errors in " + $file)
-            foreach ($pe in $parseErrors) {
-                Write-Output ("SYNTAX ERROR: line " + $pe.Extent.StartLineNumber + ", column " + $pe.Extent.StartColumnNumber + " - " + $pe.Message)
-            }
+            Write-RunnerLog ("SYNTAX ERROR in " + $file)
             $lines = @(Get-Content -LiteralPath $file -ErrorAction SilentlyContinue)
-            foreach ($pe in @($parseErrors | Select-Object -First 3)) {
+            foreach ($pe in $parseErrors) {
+                Write-RunnerLog ("Line " + $pe.Extent.StartLineNumber + ", column " + $pe.Extent.StartColumnNumber + ": " + $pe.Message)
                 $n = [int]$pe.Extent.StartLineNumber
                 $from = [Math]::Max(1, $n - 2)
                 $to = [Math]::Min($lines.Count, $n + 2)
-                if ($to -ge $from) {
-                    Write-Output ("--- context " + $file + ":" + $from + "-" + $to + " ---")
-                    for ($i = $from; $i -le $to; $i++) {
-                        Write-Output (("{0,5}: {1}" -f $i, $lines[$i-1]))
-                    }
-                }
+                for ($i = $from; $i -le $to; $i++) { Write-RunnerLog (("{0,5}: {1}" -f $i, $lines[$i-1])) }
             }
             exit 10
         }
     }
-    Write-Output ("LauncherRunner: syntax validation OK (" + $files.Count + " files)")
+    Write-RunnerLog ("Syntax validation OK (" + $files.Count + " files)")
     $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $args = @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-STA','-WindowStyle','Hidden','-File',$resolvedScript)
-    Write-Output ("LauncherRunner: starting child PowerShell for " + $resolvedScript)
+    Write-RunnerLog ("Starting GUI: " + $resolvedScript)
     $child = Start-Process -FilePath $psExe -ArgumentList $args -WorkingDirectory (Split-Path -Parent $resolvedScript) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
     if (Test-Path -LiteralPath $outFile) {
-        $out = Get-Content -LiteralPath $outFile -Raw -ErrorAction SilentlyContinue
-        if ($out) { Write-Output $out }
+        foreach ($line in @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)) { if ($line) { Write-RunnerLog ("STDOUT: " + $line) } }
     }
     if (Test-Path -LiteralPath $errFile) {
-        $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
-        if ($err) { Write-Error $err }
+        foreach ($line in @(Get-Content -LiteralPath $errFile -ErrorAction SilentlyContinue)) { if ($line) { Write-RunnerLog ("STDERR: " + $line) } }
     }
-    Write-Output ("LauncherRunner: child exit code " + $child.ExitCode)
+    Write-RunnerLog ("Child exit code: " + $child.ExitCode)
     exit $child.ExitCode
 }
 catch {
-    Write-Error ("LauncherRunner fatal error: " + $_.Exception.GetType().FullName + ": " + $_.Exception.Message)
-    Write-Error ("Position: " + $_.InvocationInfo.PositionMessage)
-    Write-Error ("ScriptStack: " + $_.ScriptStackTrace)
+    Write-RunnerLog ("FATAL: " + $_.Exception.GetType().FullName + ": " + $_.Exception.Message)
+    Write-RunnerLog ("Position: " + $_.InvocationInfo.PositionMessage)
+    Write-RunnerLog ("Stack: " + $_.ScriptStackTrace)
     exit 1
-}
-finally {
-    Remove-Item -LiteralPath $outFile,$errFile -Force -ErrorAction SilentlyContinue
 }
