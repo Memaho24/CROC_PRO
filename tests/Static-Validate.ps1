@@ -15,7 +15,7 @@ foreach($f in $psFiles){
 $ini=Get-Content -LiteralPath (Join-Path $Root 'config.ini') -Raw -Encoding UTF8
 if($ini -match '(?im)^\s*ADMIN_PASSWORD\s*='){ $fail+='config.ini contains plaintext ADMIN_PASSWORD' } else {$pass++}
 $version=(Get-Content -LiteralPath (Join-Path $Root 'version.txt') -Raw).Trim()
-if($version -ne '0.5.0'){$fail+="Unexpected version: $version"}else{$pass++}
+if($version -ne '0.5.1'){$fail+="Unexpected version: $version"}else{$pass++}
 Write-Host "PASS=$pass FAIL=$($fail.Count)"
 $fail|ForEach-Object {Write-Host $_}
 if($fail.Count){exit 1}else{exit 0}
