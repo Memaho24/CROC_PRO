@@ -39,7 +39,7 @@ foreach ($line in (Get-Content -LiteralPath (Join-Path $repoRoot 'config.ini') -
         $config[$trimmed.Substring(0, $index).Trim().ToUpperInvariant()] = $trimmed.Substring($index + 1).Trim()
     }
 }
-if ($config['GITHUB_BRANCH'] -ne 'main') { throw 'Expected GITHUB_BRANCH=main for stable updates.' }
+if ($config['GITHUB_BRANCH'] -ne 'fix/0.5.1-launcher-updater') { throw 'Expected the current 0.5.1 release branch for updates.' }
 if ($config['GITHUB_UPDATE_ENABLED'] -notin @('0','1')) { throw 'GITHUB_UPDATE_ENABLED must be 0 or 1.' }
 
 Write-Host ('PowerShell syntax passed for {0} scripts.' -f $files.Count)
