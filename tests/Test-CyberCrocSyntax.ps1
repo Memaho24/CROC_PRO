@@ -21,7 +21,8 @@ $files = @(Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.ps1' |
 foreach ($file in $files) {
     $tokens = $null
     $errors = $null
-    [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+    $sourceText = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+    [System.Management.Automation.Language.Parser]::ParseInput($sourceText, [ref]$tokens, [ref]$errors) | Out-Null
     foreach ($errorItem in @($errors)) {
         $parseFailures.Add(('{0}:{1}:{2}: {3}' -f $file.FullName, $errorItem.Extent.StartLineNumber, $errorItem.Extent.StartColumnNumber, $errorItem.Message))
     }
