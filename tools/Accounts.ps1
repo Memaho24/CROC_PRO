@@ -353,6 +353,42 @@ function Start-CcAccountSession {
     }
 }
 
+function Stop-CcAccountSession {
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)][object]$Account)
+    try {
+        if (-not $Account.Id) { throw 'Не выбран игровой аккаунт.' }
+        $pcId = [string](Get-CcPcId)
+        $all = @(Get-CcAccounts)
+        $stored = $all | Where-Object { [string]$_.Id -eq [string]$Account.Id } | Select-Object -First 1
+        if ($null -eq $stored) { throw 'Аккаунт не найден в локальном хранилище.' }
+        $activePc = ''
+        if ($stored.PSObject.Properties['ActivePc']) { $activePc = [string]$stored.ActivePc }
+        if ([string]::IsNullOrWhiteSpace($activePc) -and $stored.PSObject.Properties['PcId']) { $activePc = [string]$stored.PcId }
+        if (-not [string]::IsNullOrWhiteSpace($activePc) -and $activePc -ne $pcId -and (Get-CcRole) -ne 'admin') {
+            throw ("Аккаунт отмечен занятым на ПК {0}; освободить его может только этот ПК или администратор." -f $activePc)
+        }
+        $stored.Status = 'available'
+        $stored.UsedBy = ''
+        $stored.UsedSince = ''
+        if ($stored.PSObject.Properties['ActivePc']) { $stored.ActivePc = '' }
+        if ($stored.PSObject.Properties['PcId']) { $stored.PcId = '' }
+        if (-not (Save-CcAccounts $all)) { throw 'Не удалось сохранить состояние аккаунта.' }
+        [void](Send-CcUdpMessage ([pscustomobject]@{
+            type='account_presence'; state='available'; account_id=[string]$stored.Id
+            platform=[string]$stored.Platform; login=[string]$stored.Login
+            pc_id=$pcId; host=[Environment]::MachineName; used_by=''; used_since=''
+            timestamp=(Get-Date).ToUniversalTime().ToString('o')
+        }))
+        try { Write-CcAudit -Action 'account.session.stop' -Target ([string]$stored.Login) -Result 'success' -Details ("platform={0}; pc={1}" -f $stored.Platform,$pcId) } catch {}
+        Write-CcLog ("Account session released: {0}/{1}" -f $stored.Platform,$stored.Login) 'OK' 'Stop-CcAccountSession'
+        return $true
+    } catch {
+        Write-CcError -FunctionName 'Stop-CcAccountSession' -Exception $_.Exception
+        throw
+    }
+}
+
 function Get-CcLauncherExe {
     param([string]$Name)
     try {
